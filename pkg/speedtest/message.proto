@@ -1,0 +1,8 @@
+syntax = "proto3";
+option go_package = "/message";
+
+message Options {
+  string  Ctl = 1;
+  int32  TestTime = 2;
+  int64  TotalSize = 3;
+}
