@@ -2,3 +2,4 @@ build/pkg
 build/net-tools
 .id*
 .vs*
+go.work*

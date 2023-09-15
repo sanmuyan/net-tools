@@ -1,7 +1,12 @@
-$tools = @("portscan", "tcpping", "speedtests" , "speedtestc")
+$commands = @{
+    "portscan" = "portscan"
+    "speedtestc" = "speedtestc"
+    "speedtests" = "speedtests"
+    "tcpping" = "tcpping"
+}
 $build_data = @{
     "linux"   = @{
-        "arch_list" = @("amd64", "arm")
+        "arch_list" = @("amd64")
         "suffix"    = ""
     }
     "darwin"  = @{
@@ -14,13 +19,23 @@ $build_data = @{
     }
 }
 
+Remove-Item .\net-tools\* -Recurse
+Remove-Item .\pkg\* -Recurse
+
 foreach ($os in $build_data.Keys) {
     foreach ($arch in $build_data[$os].arch_list) {
         $env:GOOS=$os
         $env:GOARCH=$arch
-        foreach ($tool in $tools) {
+        foreach ($command in $commands.Keys) {
             $suffix = $build_data[$os].suffix
-            go build -o ./net-tools/$os/$arch/$tool$suffix ../cmd/$tool
+            $path = ".\net-tools\$os\$arch"
+            $bin = "$path\$command$suffix" + "_"
+            $command_name = $commands[$command]
+            $upx_bin = "$path\$command_name$suffix"
+
+            go build -ldflags "-w -s" -o  $bin ../cmd/$command
+            upx -1 -o $upx_bin $bin
+            Remove-Item $bin
         }
     }
 }

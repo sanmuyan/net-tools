@@ -1,5 +1,8 @@
 module net-tools
 
-go 1.18
+go 1.21.0
 
-require google.golang.org/protobuf v1.31.0 // indirect
+require (
+	github.com/sanmuyan/xpkg v0.1.3
+	google.golang.org/protobuf v1.31.0
+)

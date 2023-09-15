@@ -8,14 +8,13 @@ import (
 )
 
 type PortScan struct {
-	MaxPort   int
-	MinPort   int
+	ports     []int
 	IP        string
 	MaxThread int
 	Timeout   int
 }
 
-func NewPortScan(minPort int, maxPort int, ip string, maxThread int, timeout int) *PortScan {
+func NewPortScan(ports []int, ip string, maxThread int, timeout int) *PortScan {
 	if maxThread < 1 {
 		maxThread = 1
 	}
@@ -30,8 +29,7 @@ func NewPortScan(minPort int, maxPort int, ip string, maxThread int, timeout int
 		timeout = 10000
 	}
 	return &PortScan{
-		MaxPort:   maxPort,
-		MinPort:   minPort,
+		ports:     ports,
 		IP:        ip,
 		MaxThread: maxThread,
 		Timeout:   timeout,
@@ -44,7 +42,7 @@ func (p *PortScan) Scan(done chan bool, openPorts chan int) {
 	}()
 	maxThread := make(chan struct{}, p.MaxThread)
 	wg := sync.WaitGroup{}
-	for port := p.MinPort; port <= p.MaxPort; port++ {
+	for _, port := range p.ports {
 		wg.Add(1)
 		maxThread <- struct{}{}
 		go func(port int) {

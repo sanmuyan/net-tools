@@ -3,19 +3,40 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/sanmuyan/xpkg/xnet"
+	"net"
 	"net-tools/pkg/tcpping"
+	"os"
+	"strconv"
 	"time"
 )
 
 func main() {
-	host := flag.String("h", "localhost", "ping host")
-	port := flag.Int("p", 22, "ping port")
-	protocol := flag.String("P", "tcp", "ping protocol \nhttp read")
-	timeout := flag.Int("T", 1000, "timeout in ms")
-	count := flag.Int("c", 4, "ping count")
-	interval := flag.Int("i", 1, "ping interval in ms")
+	protocol := flag.String("P", "tcp", "Ping protocol (tcp|http|read)")
+	timeout := flag.Int("T", 1000, "Ping Timeout (ms)")
+	count := flag.Int("c", 4, "Ping count")
+	interval := flag.Int("i", 1, "Ping interval (ms)")
 	flag.Parse()
-	p := tcpping.NewTCPPing(*host, *port, *timeout, *protocol)
+
+	if len(os.Args) < 3 {
+		println("Example: tcpping 192.168.1.1 22")
+		os.Exit(1)
+	}
+	host := os.Args[1]
+	_port := os.Args[2]
+	if !xnet.IsIP(host) {
+		_, err := net.LookupHost(host)
+		if err != nil {
+			println("ping: Name or service not known", host)
+			os.Exit(1)
+		}
+	}
+	if !xnet.IsPort(_port) {
+		println("ping: Invalid port: ", _port)
+		os.Exit(1)
+	}
+	port, _ := strconv.Atoi(_port)
+	p := tcpping.NewTCPPing(host, port, *timeout, *protocol)
 	errorMessage := make(chan string)
 	pingTime := make(chan int)
 	go func() {
@@ -32,10 +53,10 @@ func main() {
 	for i := 0; i < *count; i++ {
 		select {
 		case m := <-errorMessage:
-			fmt.Printf("%s:%d error=%s\n", *host, *port, m)
+			fmt.Printf("Reply from %s:%d error=%s\n", host, port, m)
 			errorTotal++
 		case t := <-pingTime:
-			fmt.Printf("%s:%d time=%dms\n", *host, *port, t)
+			fmt.Printf("Reply from %s:%d time=%dms\n", host, port, t)
 			totalTime += t
 			successTotal++
 			if t > maxTime {
@@ -50,5 +71,5 @@ func main() {
 	if successTotal > 0 {
 		avg = totalTime / successTotal
 	}
-	fmt.Printf("success=%d, error=%d, max=%dms, min=%dms, avg=%dms\n", successTotal, errorTotal, maxTime, minTime, avg)
+	fmt.Printf("Success=%d, Error=%d, Max=%dms, Min=%dms, Avg=%dms\n", successTotal, errorTotal, maxTime, minTime, avg)
 }
