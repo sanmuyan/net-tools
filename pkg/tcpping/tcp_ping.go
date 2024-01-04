@@ -1,6 +1,7 @@
 package tcpping
 
 import (
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net"
@@ -47,6 +48,22 @@ func (t *TCPPing) readHello(conn net.Conn) error {
 	return nil
 }
 
+func (t *TCPPing) httpsHello(conn net.Conn) error {
+	tlsConfig := &tls.Config{
+		InsecureSkipVerify: true,
+	}
+	tlsConn := tls.Client(conn, tlsConfig)
+	_, err := tlsConn.Write([]byte("HEAD / HTTP/1.0\n\n"))
+	if err != nil {
+		return errors.New(fmt.Sprintf("http write timeout"))
+	}
+	_, err = conn.Read([]byte(""))
+	if err != nil {
+		return errors.New(fmt.Sprintf("http read timeout"))
+	}
+	return nil
+}
+
 func (t *TCPPing) PING(errorMessage chan string, pingTime chan int) {
 	starTime := time.Now()
 	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", t.Host, t.Port), time.Duration(t.Timeout)*time.Millisecond)
@@ -72,6 +89,8 @@ func (t *TCPPing) PING(errorMessage chan string, pingTime chan int) {
 		err = t.httpHello(conn)
 	case "read":
 		err = t.readHello(conn)
+	case "https":
+		err = t.httpsHello(conn)
 	}
 	if err != nil {
 		errorMessage <- fmt.Sprintf("%s", err)

@@ -13,15 +13,16 @@ func main() {
 	mode := flag.String("m", "download", "SpeedTest mode (download|upload)")
 	protocol := flag.String("P", "tcp", "SpeedTest protocol (tcp|udp)")
 	maxThread := flag.Int("T", 1, "SpeedTest Max thread")
+	server := flag.String("s", "localhost:8080", "SpeedTest server")
 	flag.Parse()
 
-	if len(os.Args) < 2 {
-		println("Example: speedtestc 192.168.1.1:8080")
-		os.Exit(1)
+	if flag.NArg() == 1 {
+		*server = flag.Arg(0)
 	}
-	addr := strings.Split(os.Args[1], ":")
+	addr := strings.Split(*server, ":")
 	if len(addr) != 2 {
 		println("Invalid server address: ", os.Args[1])
+		println("Example: speedtestc 192.168.1.1:8080")
 		os.Exit(1)
 	}
 	host := addr[0]
