@@ -28,14 +28,20 @@ func NewTCPPing(host string, port int, timeout int, protocol string) *TCPPing {
 	return &TCPPing{Host: host, Port: port, Timeout: timeout, Protocol: protocol}
 }
 
+var (
+	writeError = errors.New(fmt.Sprintf("write error"))
+	readError  = errors.New(fmt.Sprintf("read timeout"))
+	timeoutMsg = fmt.Sprintf("timeout")
+)
+
 func (t *TCPPing) httpHello(conn net.Conn) error {
-	_, err := conn.Write([]byte("HEAD / HTTP/1.0\n\n"))
+	_, err := conn.Write([]byte("HEAD / HTTP/1.1\n\n"))
 	if err != nil {
-		return errors.New(fmt.Sprintf("http write timeout"))
+		return writeError
 	}
 	_, err = conn.Read([]byte(""))
 	if err != nil {
-		return errors.New(fmt.Sprintf("http read timeout"))
+		return readError
 	}
 	return nil
 }
@@ -43,7 +49,7 @@ func (t *TCPPing) httpHello(conn net.Conn) error {
 func (t *TCPPing) readHello(conn net.Conn) error {
 	_, err := conn.Read([]byte(""))
 	if err != nil {
-		return errors.New(fmt.Sprintf("ssh read timeout"))
+		return readError
 	}
 	return nil
 }
@@ -53,13 +59,13 @@ func (t *TCPPing) httpsHello(conn net.Conn) error {
 		InsecureSkipVerify: true,
 	}
 	tlsConn := tls.Client(conn, tlsConfig)
-	_, err := tlsConn.Write([]byte("HEAD / HTTP/1.0\n\n"))
+	_, err := tlsConn.Write([]byte("HEAD / HTTP/1.1\n\n"))
 	if err != nil {
-		return errors.New(fmt.Sprintf("http write timeout"))
+		return writeError
 	}
 	_, err = conn.Read([]byte(""))
 	if err != nil {
-		return errors.New(fmt.Sprintf("http read timeout"))
+		return readError
 	}
 	return nil
 }
@@ -68,7 +74,7 @@ func (t *TCPPing) PING(errorMessage chan string, pingTime chan int) {
 	starTime := time.Now()
 	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", t.Host, t.Port), time.Duration(t.Timeout)*time.Millisecond)
 	if err != nil {
-		errorMessage <- fmt.Sprintf("timeout")
+		errorMessage <- timeoutMsg
 		return
 	}
 	defer func() {
@@ -81,7 +87,7 @@ func (t *TCPPing) PING(errorMessage chan string, pingTime chan int) {
 		_ = conn.SetReadDeadline(time.Now().Add(time.Duration(_t) * time.Millisecond))
 		_ = conn.SetWriteDeadline(time.Now().Add(time.Duration(_t) * time.Millisecond))
 	} else {
-		errorMessage <- fmt.Sprintf("timeout")
+		errorMessage <- timeoutMsg
 		return
 	}
 	switch t.Protocol {
@@ -98,7 +104,7 @@ func (t *TCPPing) PING(errorMessage chan string, pingTime chan int) {
 	}
 	pt = int(time.Now().Sub(starTime).Milliseconds())
 	if pt > t.Timeout {
-		errorMessage <- fmt.Sprintf("timeout")
+		errorMessage <- timeoutMsg
 		return
 	}
 	pingTime <- pt
