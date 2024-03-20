@@ -34,8 +34,12 @@ var (
 	timeoutMsg = fmt.Sprintf("timeout")
 )
 
+func (t *TCPPing) httpHelloMessage() []byte {
+	return []byte("HEAD / HTTP/1.1\nHost: " + t.Host + "\n\n")
+}
+
 func (t *TCPPing) httpHello(conn net.Conn) error {
-	_, err := conn.Write([]byte("HEAD / HTTP/1.1\n\n"))
+	_, err := conn.Write(t.httpHelloMessage())
 	if err != nil {
 		return writeError
 	}
@@ -59,7 +63,7 @@ func (t *TCPPing) httpsHello(conn net.Conn) error {
 		InsecureSkipVerify: true,
 	}
 	tlsConn := tls.Client(conn, tlsConfig)
-	_, err := tlsConn.Write([]byte("HEAD / HTTP/1.1\n\n"))
+	_, err := tlsConn.Write(t.httpHelloMessage())
 	if err != nil {
 		return writeError
 	}
