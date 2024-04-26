@@ -3,6 +3,7 @@ package speedtestc
 import (
 	"bufio"
 	"context"
+	"github.com/sanmuyan/xpkg/xnet"
 	"log"
 	"net"
 	"net-tools/pkg/speedtest"
@@ -107,6 +108,15 @@ func Start(client *Client) {
 	} else {
 		c = NewUDPClient(client)
 	}
+	t := time.NewTicker(time.Second)
+	defer t.Stop()
+	go func() {
+		var latestSize int
+		for range t.C {
+			log.Printf("real-time speed: %s", xnet.GetDataSpeed(c.getTotalSize()-latestSize, 1))
+			latestSize = c.getTotalSize()
+		}
+	}()
 	wg := new(sync.WaitGroup)
 	for i := 0; i < client.MaxThread; i++ {
 		wg.Add(1)
@@ -116,14 +126,5 @@ func Start(client *Client) {
 		}()
 	}
 	wg.Wait()
-	bit := c.getTotalSize() * 8 / client.TestTime
-	if bit >= 1024*1024 {
-		log.Printf("finished speed: %dMbps/s", bit/1024/1024)
-	}
-	if bit >= 1024 && bit < 1024*1024 {
-		log.Printf("finished speed: %dKbps/s", bit/1024)
-	}
-	if bit < 1024 {
-		log.Printf("finished speed: %dbps/s", bit)
-	}
+	log.Printf("finished avg speed: %s", xnet.GetDataSpeed(c.getTotalSize(), client.TestTime))
 }
