@@ -16,7 +16,7 @@ func main() {
 	protocol := flag.String("P", "tcp", "Ping protocol (tcp|http|https|read)")
 	timeout := flag.Int("T", 1000, "Ping Timeout (ms)")
 	count := flag.Int("c", 4, "Ping count")
-	interval := flag.Int("i", 1, "Ping interval (ms)")
+	interval := flag.Int("i", 1000, "Ping interval (ms)")
 	pingHost := flag.String("h", "127.0.0.1:80", "Ping host")
 	flag.Parse()
 
@@ -46,27 +46,28 @@ func main() {
 		os.Exit(1)
 	}
 	portInt, _ := strconv.Atoi(port)
-	p := tcpping.NewTCPPing(host, portInt, *timeout, *protocol)
+	p := tcpping.NewTCPPing(host, portInt, int64(*timeout), *protocol)
 	errorMessage := make(chan string)
-	pingTime := make(chan int)
+	pingTime := make(chan float32)
 	go func() {
 		for i := 0; i < *count; i++ {
 			p.PING(errorMessage, pingTime)
 			time.Sleep(time.Duration(*interval) * time.Millisecond)
 		}
 	}()
-	var totalTime int
+	var totalTime float32
 	var successTotal int
 	var errorTotal int
-	var maxTime int
-	var minTime int
+	var maxTime float32
+	var minTime float32
 	for i := 0; i < *count; i++ {
 		select {
 		case m := <-errorMessage:
 			fmt.Printf("Reply from %s:%d error=%s\n", host, portInt, m)
 			errorTotal++
 		case t := <-pingTime:
-			fmt.Printf("Reply from %s:%d time=%dms\n", host, portInt, t)
+			t = t / 1000
+			fmt.Printf("Reply from %s:%d time=%.3fms\n", host, portInt, t)
 			totalTime += t
 			successTotal++
 			if t > maxTime {
@@ -77,9 +78,9 @@ func main() {
 			}
 		}
 	}
-	var avg int
+	var avg float32
 	if successTotal > 0 {
-		avg = totalTime / successTotal
+		avg = totalTime / float32(successTotal)
 	}
-	fmt.Printf("Success=%d, Error=%d, Max=%dms, Min=%dms, Avg=%dms\n", successTotal, errorTotal, maxTime, minTime, avg)
+	fmt.Printf("Success=%d, Error=%d, Max=%.3fms, Min=%.3fms, Avg=%.3fms\n", successTotal, errorTotal, maxTime, minTime, avg)
 }

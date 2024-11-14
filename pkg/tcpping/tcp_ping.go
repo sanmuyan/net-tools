@@ -11,11 +11,11 @@ import (
 type TCPPing struct {
 	Host     string
 	Port     int
-	Timeout  int
+	Timeout  int64
 	Protocol string
 }
 
-func NewTCPPing(host string, port int, timeout int, protocol string) *TCPPing {
+func NewTCPPing(host string, port int, timeout int64, protocol string) *TCPPing {
 	if port < 0 || port > 65535 {
 		port = 22
 	}
@@ -25,7 +25,8 @@ func NewTCPPing(host string, port int, timeout int, protocol string) *TCPPing {
 	if timeout > 100000 {
 		timeout = 100000
 	}
-	return &TCPPing{Host: host, Port: port, Timeout: timeout, Protocol: protocol}
+	// timeout * 1000 程序内部使用微妙
+	return &TCPPing{Host: host, Port: port, Timeout: timeout * 1000, Protocol: protocol}
 }
 
 var (
@@ -74,9 +75,9 @@ func (t *TCPPing) httpsHello(conn net.Conn) error {
 	return nil
 }
 
-func (t *TCPPing) PING(errorMessage chan string, pingTime chan int) {
-	starTime := time.Now()
-	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", t.Host, t.Port), time.Duration(t.Timeout)*time.Millisecond)
+func (t *TCPPing) PING(errorMessage chan string, pingTime chan float32) {
+	starTime := time.Now().UnixMicro()
+	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", t.Host, t.Port), time.Duration(t.Timeout)*time.Microsecond)
 	if err != nil {
 		errorMessage <- timeoutMsg
 		return
@@ -84,12 +85,12 @@ func (t *TCPPing) PING(errorMessage chan string, pingTime chan int) {
 	defer func() {
 		_ = conn.Close()
 	}()
-	pt := int(time.Now().Sub(starTime).Milliseconds())
+	pt := time.Now().UnixMicro() - starTime
 	if pt < t.Timeout {
 		// 剩余超时时间应该减去建立连接的耗时
 		_t := t.Timeout - pt
-		_ = conn.SetReadDeadline(time.Now().Add(time.Duration(_t) * time.Millisecond))
-		_ = conn.SetWriteDeadline(time.Now().Add(time.Duration(_t) * time.Millisecond))
+		_ = conn.SetReadDeadline(time.Now().Add(time.Duration(_t) * time.Microsecond))
+		_ = conn.SetWriteDeadline(time.Now().Add(time.Duration(_t) * time.Microsecond))
 	} else {
 		errorMessage <- timeoutMsg
 		return
@@ -106,10 +107,10 @@ func (t *TCPPing) PING(errorMessage chan string, pingTime chan int) {
 		errorMessage <- fmt.Sprintf("%s", err)
 		return
 	}
-	pt = int(time.Now().Sub(starTime).Milliseconds())
+	pt = time.Now().Add(time.Microsecond).UnixMicro() - starTime
 	if pt > t.Timeout {
 		errorMessage <- timeoutMsg
 		return
 	}
-	pingTime <- pt
+	pingTime <- float32(pt)
 }
