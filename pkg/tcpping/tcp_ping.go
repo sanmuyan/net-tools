@@ -1,10 +1,15 @@
 package tcpping
 
 import (
+	"context"
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"github.com/sanmuyan/xpkg/xnet"
+	"github.com/spf13/viper"
 	"net"
+	"net-tools/pkg/loger"
+	"strconv"
 	"time"
 )
 
@@ -113,4 +118,67 @@ func (t *TCPPing) PING(errorMessage chan string, pingTime chan float32) {
 		return
 	}
 	pingTime <- float32(pt)
+}
+
+func Run(ctx context.Context, args []string) {
+	protocol := viper.GetString("protocol")
+	timeout := viper.GetInt("timeout")
+	count := viper.GetInt("count")
+	interval := viper.GetInt("interval")
+
+	var host string
+	var port string
+	if len(args) == 2 {
+		host = args[0]
+		port = args[1]
+	}
+	if !xnet.IsIP(host) {
+		_, err := net.LookupHost(host)
+		if err != nil {
+			loger.S.Fatalf("ping: Name or service not known %s", host)
+		}
+	}
+	if !xnet.IsPort(port) {
+		loger.S.Fatalf("ping: Invalid por %s", port)
+	}
+	portInt, _ := strconv.Atoi(port)
+	p := NewTCPPing(host, portInt, int64(timeout), protocol)
+	errorMessage := make(chan string)
+	pingTime := make(chan float32)
+	go func() {
+		for i := 0; i < count; i++ {
+			p.PING(errorMessage, pingTime)
+			time.Sleep(time.Duration(interval) * time.Millisecond)
+		}
+	}()
+	var totalTime float32
+	var successTotal int
+	var errorTotal int
+	var maxTime float32
+	var minTime float32
+	for i := 0; i < count; i++ {
+		select {
+		case m := <-errorMessage:
+			loger.S.Infof("Reply from %s:%d error=%s", host, portInt, m)
+			errorTotal++
+		case t := <-pingTime:
+			t = t / 1000
+			loger.S.Infof("Reply from %s:%d time=%.3fms", host, portInt, t)
+			totalTime += t
+			successTotal++
+			if t > maxTime {
+				maxTime = t
+			}
+			if t < minTime || minTime == 0 {
+				minTime = t
+			}
+		case <-ctx.Done():
+
+		}
+	}
+	var avg float32
+	if successTotal > 0 {
+		avg = totalTime / float32(successTotal)
+	}
+	loger.S.Infof("Success=%d, Error=%d, Max=%.3fms, Min=%.3fms, Avg=%.3fms", successTotal, errorTotal, maxTime, minTime, avg)
 }

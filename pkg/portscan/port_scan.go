@@ -1,8 +1,12 @@
 package portscan
 
 import (
+	"context"
 	"fmt"
+	"github.com/sanmuyan/xpkg/xnet"
+	"github.com/spf13/viper"
 	"net"
+	"net-tools/pkg/loger"
 	"sync"
 	"time"
 )
@@ -59,4 +63,45 @@ func (p *PortScan) Scan(done chan bool, openPorts chan int) {
 		}(port)
 	}
 	wg.Wait()
+}
+
+func Run(ctx context.Context, args []string) {
+	maxThread := viper.GetInt("max-thread")
+	timeout := viper.GetInt("timeout")
+	var ip string
+	var port string
+
+	if len(args) == 2 {
+		ip = args[0]
+		port = args[1]
+	}
+	if !xnet.IsIP(ip) && !xnet.IsCIDR(ip) && !xnet.IsIPRange(ip) {
+		loger.S.Fatalf("Invalid ip: %v", ip)
+	}
+	if !xnet.IsPort(port) {
+		loger.S.Fatalf("Invalid port: %v", port)
+	}
+
+	loger.S.Debugf("PortScan: %s %s", ip, port)
+
+	ips := xnet.ParseIPList(ip)
+	ports := xnet.GeneratePorts(port)
+	for _, ip := range ips {
+		done := make(chan bool)
+		openPorts := make(chan int)
+		p := NewPortScan(ports, ip, maxThread, timeout)
+		go p.Scan(done, openPorts)
+		func() {
+			for {
+				select {
+				case openPort := <-openPorts:
+					loger.S.Infof("Opened: %s:%d", ip, openPort)
+				case <-done:
+					return
+				case <-ctx.Done():
+					return
+				}
+			}
+		}()
+	}
 }

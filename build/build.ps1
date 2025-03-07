@@ -1,8 +1,5 @@
 $commands = @{
-    "portscan" = "portscan"
-    "speedtestc" = "speedtestc"
-    "speedtests" = "speedtests"
-    "tcpping" = "tcpping"
+    "nettools" = "net-tools"
 }
 $build_data = @{
     "linux"   = @{

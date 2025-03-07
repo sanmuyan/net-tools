@@ -3,10 +3,9 @@ package speedtests
 import (
 	"bufio"
 	"context"
-	"log"
+	"github.com/sirupsen/logrus"
 	"net"
 	"net-tools/pkg/speedtest"
-	"strconv"
 	"time"
 )
 
@@ -22,7 +21,7 @@ func NewTCPServer(server *Server) *TCPServer {
 
 func (s *TCPServer) handleDownload(ctx context.Context, conn *net.TCPConn) {
 	defer func() {
-		log.Printf("download finished in %s", conn.RemoteAddr())
+		logrus.Infof("download finished in %s", conn.RemoteAddr())
 	}()
 	for {
 		select {
@@ -40,7 +39,7 @@ func (s *TCPServer) handleDownload(ctx context.Context, conn *net.TCPConn) {
 
 func (s *TCPServer) handleUpload(ctx context.Context, conn *net.TCPConn) {
 	defer func() {
-		log.Printf("tcp upload finished in %s", conn.RemoteAddr())
+		logrus.Infof("tcp upload finished in %s", conn.RemoteAddr())
 	}()
 	totalSize := 0
 	reader := bufio.NewReader(conn)
@@ -73,8 +72,8 @@ func (s *TCPServer) controller(conn *net.TCPConn) {
 		if err != nil {
 			return true
 		}
-		log.Printf("tcp %s from %s", msg.GetCtl(), conn.RemoteAddr())
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(msg.TestTime))
+		logrus.Infof("tcp %s from %s", msg.GetCtl(), conn.RemoteAddr())
+		ctx, cancel := context.WithTimeout(s.ctx, time.Second*time.Duration(msg.TestTime))
 		defer cancel()
 		switch msg.Ctl {
 		case "download":
@@ -91,18 +90,24 @@ func (s *TCPServer) setConnDeadline(conn *net.TCPConn) {
 }
 
 func (s *TCPServer) run() {
-	tcpAddr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(s.ServerBind, strconv.Itoa(s.ServerPort)))
+	tcpAddr, err := net.ResolveTCPAddr("tcp", s.ServerBind)
 	listener, err := net.ListenTCP("tcp", tcpAddr)
 	if err != nil {
-		log.Fatalf("listen error: %v", err)
+		logrus.Fatalf("listen error: %v", err)
 	}
-	log.Printf("tcp server runing %s:%d", s.ServerBind, s.ServerPort)
-	for {
-		conn, err := listener.AcceptTCP()
-		if err != nil {
-			log.Printf("accept error: %v", err)
-			continue
+	defer func() {
+		_ = listener.Close()
+	}()
+	logrus.Infof("tcp server listening on %s", s.ServerBind)
+	go func() {
+		for {
+			conn, err := listener.AcceptTCP()
+			if err != nil {
+				logrus.Errorf("accept error: %v", err)
+				continue
+			}
+			go s.controller(conn)
 		}
-		go s.controller(conn)
-	}
+	}()
+	<-s.ctx.Done()
 }

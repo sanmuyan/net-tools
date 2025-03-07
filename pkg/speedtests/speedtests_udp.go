@@ -2,10 +2,10 @@ package speedtests
 
 import (
 	"context"
+	"github.com/sirupsen/logrus"
 	"log"
 	"net"
 	"net-tools/pkg/speedtest"
-	"strconv"
 	"sync"
 	"time"
 )
@@ -31,7 +31,7 @@ func (s *UDPServer) handleDownload(ctx context.Context, addr *net.UDPAddr) {
 	for {
 		select {
 		case <-ctx.Done():
-			log.Printf("udp download finished in %s", addr.String())
+			logrus.Infof("udp download finished in %s", addr.String())
 			return
 		default:
 			_, err := s.conn.WriteTo(speedtest.PreMessage1024, addr)
@@ -54,7 +54,7 @@ func (s *UDPServer) handleUpload(addr *net.UDPAddr, n int) {
 
 func (s *UDPServer) controller(addr *net.UDPAddr, msg *speedtest.Message) {
 	log.Printf("udp %s from %s", msg.GetCtl(), addr.String())
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(msg.TestTime))
+	ctx, cancel := context.WithTimeout(s.ctx, time.Second*time.Duration(msg.TestTime))
 	defer cancel()
 	switch msg.Ctl {
 	case "download":
@@ -64,7 +64,7 @@ func (s *UDPServer) controller(addr *net.UDPAddr, msg *speedtest.Message) {
 			totalSize: 0,
 		})
 		time.Sleep(time.Second * time.Duration(msg.TestTime))
-		log.Printf("upload finished in %s", addr.String())
+		logrus.Infof("upload finished in %s", addr.String())
 		if up, ok := s.uploadPool.Load(addr.String()); ok {
 			// 执行结束后，把客户端上传的数据总和统计返回给客户端
 			_, _ = s.conn.WriteTo(speedtest.NewMessage(&speedtest.Options{
@@ -76,34 +76,37 @@ func (s *UDPServer) controller(addr *net.UDPAddr, msg *speedtest.Message) {
 }
 
 func (s *UDPServer) run() {
-	updAddr, err := net.ResolveUDPAddr("udp", net.JoinHostPort(s.ServerBind, strconv.Itoa(s.ServerPort)))
+	updAddr, err := net.ResolveUDPAddr("udp", s.ServerBind)
 	s.conn, err = net.ListenUDP("udp", updAddr)
 	if err != nil {
-		log.Fatalf("listen error: %v", err)
+		logrus.Fatalf("listen error: %v", err)
 	}
 	defer func() {
 		_ = s.conn.Close()
 	}()
-	log.Printf("udp server runing %s:%d", s.ServerBind, s.ServerPort)
-	for {
-		data := make([]byte, 1024)
-		n, addr, err := s.conn.ReadFromUDP(data)
-		if err != nil {
-			return
+	logrus.Infof("udp server listening on %s", s.ServerBind)
+	go func() {
+		for {
+			data := make([]byte, 1024)
+			n, addr, err := s.conn.ReadFromUDP(data)
+			if err != nil {
+				return
+			}
+			// 判断客户端是否已经在连接池中，如果是统计客户端上传的数据总和
+			if _, ok := s.uploadPool.Load(addr.String()); ok {
+				go s.handleUpload(addr, n)
+				continue
+			}
+			if n == 1024 {
+				continue
+			}
+			msg, err := speedtest.UnmarshalUDP(data[:n])
+			if err != nil {
+				logrus.Errorf("decode udp error: %v", err)
+				continue
+			}
+			go s.controller(addr, msg)
 		}
-		// 判断客户端是否已经在连接池中，如果是统计客户端上传的数据总和
-		if _, ok := s.uploadPool.Load(addr.String()); ok {
-			go s.handleUpload(addr, n)
-			continue
-		}
-		if n == 1024 {
-			continue
-		}
-		msg, err := speedtest.UnmarshalUDP(data[:n])
-		if err != nil {
-			log.Printf("decode udp error: %v", err)
-			continue
-		}
-		go s.controller(addr, msg)
-	}
+	}()
+	<-s.ctx.Done()
 }

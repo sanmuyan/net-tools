@@ -2,9 +2,9 @@ package speedtestc
 
 import (
 	"context"
+	"github.com/sirupsen/logrus"
 	"log"
 	"net"
-	"strconv"
 	"time"
 )
 
@@ -24,10 +24,10 @@ func (c *UDPClient) run() {
 	defer func() {
 		_ = conn.Close()
 	}()
-	log.Printf("udp %s testing to %s:%d", c.Mode, c.ServerHost, c.ServerPort)
+	log.Printf("udp %s testing to %s", c.Mode, c.Server)
 	_, err := conn.Write(c.createCtlMsg())
 	if err != nil {
-		log.Fatalf("failed to write to tcp server: %v", err)
+		logrus.Fatalf("failed to write to tcp server: %v", err)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(c.TestTime)*time.Second)
 	defer cancel()
@@ -40,10 +40,10 @@ func (c *UDPClient) run() {
 }
 
 func (c *UDPClient) createConn() net.Conn {
-	udpAddr, err := net.ResolveUDPAddr("udp", net.JoinHostPort(c.ServerHost, strconv.Itoa(c.ServerPort)))
+	udpAddr, err := net.ResolveUDPAddr("udp", c.Server)
 	conn, err := net.DialUDP("udp", nil, udpAddr)
 	if err != nil {
-		log.Fatalf("failed to dial server: %v", err)
+		logrus.Fatalf("failed to dial server: %v", err)
 	}
 	return conn
 }

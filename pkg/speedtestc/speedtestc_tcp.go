@@ -2,9 +2,8 @@ package speedtestc
 
 import (
 	"context"
-	"log"
+	"github.com/sirupsen/logrus"
 	"net"
-	"strconv"
 	"time"
 )
 
@@ -24,13 +23,13 @@ func (c *TCPClient) run() {
 	defer func() {
 		_ = conn.Close()
 	}()
-	log.Printf("tcp %s testing to %s:%d", c.Mode, c.ServerHost, c.ServerPort)
+	logrus.Infof("tcp %s testing to %s", c.Mode, c.Server)
 
 	_, err := conn.Write(c.createCtlMsg())
 	if err != nil {
-		log.Fatalf("failed to write to tcp server: %v", err)
+		logrus.Fatalf("failed to write to tcp server: %v", err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(c.TestTime)*time.Second)
+	ctx, cancel := context.WithTimeout(c.ctx, time.Duration(c.TestTime)*time.Second)
 	defer cancel()
 	switch c.Mode {
 	case "download":
@@ -41,10 +40,10 @@ func (c *TCPClient) run() {
 }
 
 func (c *TCPClient) createConn() net.Conn {
-	tcpAddr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(c.ServerHost, strconv.Itoa(c.ServerPort)))
+	tcpAddr, err := net.ResolveTCPAddr("tcp", c.Server)
 	conn, err := net.DialTCP("tcp", nil, tcpAddr)
 	if err != nil {
-		log.Fatalf("failed to dial server: %v", err)
+		logrus.Fatalf("failed to dial server: %v", err)
 	}
 	return conn
 }

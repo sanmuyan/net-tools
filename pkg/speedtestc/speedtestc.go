@@ -4,7 +4,8 @@ import (
 	"bufio"
 	"context"
 	"github.com/sanmuyan/xpkg/xnet"
-	"log"
+	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"net"
 	"net-tools/pkg/speedtest"
 	"sync"
@@ -14,27 +15,30 @@ import (
 type ClientConn interface {
 	run()
 	getTotalSize() int
+	getErrorCh() chan error
 }
 
 type Client struct {
-	ServerHost string
-	ServerPort int
-	Mode       string
-	TestTime   int
-	Protocol   string
-	MaxThread  int
-	TotalSize  int
-	mu         sync.Mutex
+	Server    string
+	Mode      string
+	TestTime  int
+	Protocol  string
+	MaxThread int
+	TotalSize int
+	mu        sync.Mutex
+	ctx       context.Context
+	errCh     chan error
 }
 
-func NewClient(serverHost string, serverPort int, mode string, testTime int, protocol string, maxThread int) *Client {
+func NewClient(ctx context.Context, server string, mode string, testTime int, protocol string, maxThread int) *Client {
 	return &Client{
-		ServerHost: serverHost,
-		ServerPort: serverPort,
-		Mode:       mode,
-		TestTime:   testTime,
-		Protocol:   protocol,
-		MaxThread:  maxThread,
+		Server:    server,
+		Mode:      mode,
+		TestTime:  testTime,
+		Protocol:  protocol,
+		MaxThread: maxThread,
+		ctx:       ctx,
+		errCh:     make(chan error, maxThread),
 	}
 }
 
@@ -47,6 +51,7 @@ func (c *Client) handleDownload(ctx context.Context, conn net.Conn) {
 		default:
 			data, err := reader.ReadBytes('\n')
 			if err != nil {
+				c.getErrorCh() <- err
 				return
 			}
 			go func() {
@@ -67,6 +72,7 @@ func (c *Client) handleUpload(ctx context.Context, conn net.Conn) {
 			default:
 				_, err := conn.Write(speedtest.PreMessage1024)
 				if err != nil {
+					c.getErrorCh() <- err
 					return
 				}
 			}
@@ -101,20 +107,33 @@ func (c *Client) createCtlMsg() []byte {
 
 }
 
-func Start(client *Client) {
+func (c *Client) getErrorCh() chan error {
+	return c.errCh
+}
+
+func Run(ctx context.Context) {
+	testTime := viper.GetInt("test-time")
+	testMode := viper.GetString("test-mode")
+	protocol := viper.GetString("protocol")
+	maxThread := viper.GetInt("max-thread")
+	server := viper.GetString("server-addr")
+	client := NewClient(ctx, server, testMode, testTime, protocol, maxThread)
+
 	var c ClientConn
 	if client.Protocol == "tcp" {
 		c = NewTCPClient(client)
 	} else {
 		c = NewUDPClient(client)
 	}
+	var runTime int
 	t := time.NewTicker(time.Second)
 	defer t.Stop()
 	go func() {
 		var latestSize int
 		for range t.C {
-			log.Printf("real-time speed: %s", xnet.GetDataSpeed(c.getTotalSize()-latestSize, 1))
+			logrus.Infof("real-time speed: %s", xnet.GetDataSpeed(c.getTotalSize()-latestSize, 1))
 			latestSize = c.getTotalSize()
+			runTime += 1
 		}
 	}()
 	wg := new(sync.WaitGroup)
@@ -126,5 +145,13 @@ func Start(client *Client) {
 		}()
 	}
 	wg.Wait()
-	log.Printf("finished avg speed: %s", xnet.GetDataSpeed(c.getTotalSize(), client.TestTime))
+	select {
+	case <-ctx.Done():
+		return
+	case err := <-c.getErrorCh():
+		logrus.Errorf("error: %v", err)
+		return
+	default:
+		logrus.Infof("finished avg speed: %s", xnet.GetDataSpeed(c.getTotalSize(), testTime))
+	}
 }
