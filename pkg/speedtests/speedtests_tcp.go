@@ -3,6 +3,8 @@ package speedtests
 import (
 	"bufio"
 	"context"
+	"errors"
+	"github.com/sanmuyan/xpkg/xconstant"
 	"github.com/sirupsen/logrus"
 	"net"
 	"net-tools/pkg/speedtest"
@@ -19,79 +21,85 @@ func NewTCPServer(server *Server) *TCPServer {
 	}
 }
 
-func (s *TCPServer) handleDownload(ctx context.Context, conn *net.TCPConn) {
+func (s *TCPServer) handleDownload(ctx context.Context, conn net.Conn) {
 	defer func() {
-		logrus.Infof("download finished in %s", conn.RemoteAddr())
+		logrus.Infof("tcp download finished in %s", conn.RemoteAddr())
 	}()
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		default:
-			_, err := conn.Write(speedtest.PreMessage1024)
+			err := speedtest.WriteTCP(&speedtest.Message{
+				Ctl:  speedtest.NewData,
+				Data: speedtest.PreMessageTCP,
+			}, conn)
 			if err != nil {
+				logrus.Debugf("failed to wite: %v %s", err, conn.RemoteAddr())
 				return
 			}
-			s.setConnDeadline(conn)
 		}
 	}
 }
 
-func (s *TCPServer) handleUpload(ctx context.Context, conn *net.TCPConn) {
+func (s *TCPServer) handleUpload(ctx context.Context, conn net.Conn) {
 	defer func() {
 		logrus.Infof("tcp upload finished in %s", conn.RemoteAddr())
 	}()
-	totalSize := 0
-	reader := bufio.NewReader(conn)
-	defer func() {
-		// 执行结束后，把客户端上传的数据总和统计返回给客户端
-		_, _ = conn.Write(speedtest.NewMessage(&speedtest.Options{
-			TotalSize: int64(totalSize),
-		}).Encode())
-	}()
+	reader := bufio.NewReaderSize(conn, speedtest.ReadBufferSize)
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		default:
-			data, err := reader.ReadBytes('\n')
+			msg, err := speedtest.ReadTCP(reader)
 			if err != nil {
+				logrus.Debugf("failed to read: %v %s", err, conn.RemoteAddr())
+				if errors.Is(err, xconstant.BufferedTooSmallError) {
+					reader.Reset(bufio.NewReaderSize(conn, speedtest.ReadBufferSize))
+					continue
+				}
 				return
 			}
-			totalSize += len(data)
-			s.setConnDeadline(conn)
+			switch msg.GetCtl() {
+			case speedtest.NewData:
+				continue
+			default:
+				logrus.Debugf("unknown ctl: %d %s", msg.GetCtl(), conn.RemoteAddr())
+				continue
+			}
 		}
 	}
 }
 
-func (s *TCPServer) controller(conn *net.TCPConn) {
+func (s *TCPServer) controller(conn net.Conn) {
 	defer func() {
 		_ = conn.Close()
 	}()
-	speedtest.ReadAndUnmarshal(conn, func(msg *speedtest.Message, err error) (exit bool) {
-		if err != nil {
-			return true
-		}
-		logrus.Infof("tcp %s from %s", msg.GetCtl(), conn.RemoteAddr())
-		ctx, cancel := context.WithTimeout(s.ctx, time.Second*time.Duration(msg.TestTime))
-		defer cancel()
-		switch msg.Ctl {
-		case "download":
-			s.handleDownload(ctx, conn)
-		case "upload":
-			s.handleUpload(ctx, conn)
-		}
-		return true
-	})
-}
-func (s *TCPServer) setConnDeadline(conn *net.TCPConn) {
-	_ = conn.SetReadDeadline(time.Now().Add(time.Second * 10))
-	_ = conn.SetWriteDeadline(time.Now().Add(time.Second * 10))
+	reader := bufio.NewReaderSize(conn, speedtest.ReadBufferSize)
+	msg, err := speedtest.ReadTCP(reader)
+	if err != nil {
+		logrus.Debugf("failed to read: %v %s", err, conn.RemoteAddr())
+		return
+	}
+	if msg.GetCtl() != speedtest.NewTest {
+		logrus.Debugf("failed ctl: %d %s", msg.GetCtl(), conn.RemoteAddr())
+		return
+	}
+	logrus.Infof("tcp %s from %s", msg.GetTestMode(), conn.RemoteAddr())
+	s.setConnDeadline(conn, int(msg.GetTestTime()+1))
+	ctx, cancel := context.WithTimeout(s.ctx, time.Second*time.Duration(msg.TestTime+1))
+	defer cancel()
+	switch msg.GetTestMode() {
+	case "download":
+		s.handleDownload(ctx, conn)
+	case "upload":
+		s.handleUpload(ctx, conn)
+	}
 }
 
 func (s *TCPServer) run() {
-	tcpAddr, err := net.ResolveTCPAddr("tcp", s.ServerBind)
-	listener, err := net.ListenTCP("tcp", tcpAddr)
+	listener, err := net.Listen("tcp", s.ServerBind)
 	if err != nil {
 		logrus.Fatalf("listen error: %v", err)
 	}
@@ -101,9 +109,8 @@ func (s *TCPServer) run() {
 	logrus.Infof("tcp server listening on %s", s.ServerBind)
 	go func() {
 		for {
-			conn, err := listener.AcceptTCP()
+			conn, err := listener.Accept()
 			if err != nil {
-				logrus.Errorf("accept error: %v", err)
 				continue
 			}
 			go s.controller(conn)

@@ -3,6 +3,8 @@ package speedtests
 import (
 	"context"
 	"github.com/spf13/viper"
+	"net"
+	"time"
 )
 
 type ServerConn interface {
@@ -11,33 +13,26 @@ type ServerConn interface {
 
 type Server struct {
 	ServerBind string
-	Protocol   string
 	ctx        context.Context
 }
 
-func NewServer(ctx context.Context, serverBind string, protocol string) *Server {
+func NewServer(ctx context.Context, serverBind string) *Server {
 	return &Server{
 		ServerBind: serverBind,
-		Protocol:   protocol,
 		ctx:        ctx,
 	}
 }
 
+func (s *Server) setConnDeadline(conn net.Conn, testTime int) {
+	_ = conn.SetReadDeadline(time.Now().Add(time.Second * time.Duration(testTime)))
+	_ = conn.SetWriteDeadline(time.Now().Add(time.Second * time.Duration(testTime)))
+}
+
 func RunServer(server *Server) {
-	//switch server.Protocol {
-	//case "tcp":
-	//	NewTCPServer(server).run()
-	//case "udp":
-	//	NewUDPServer(server).run()
-	//default:
-	//	go NewUDPServer(server).run()
-	//	NewTCPServer(server).run()
-	//}
 	NewTCPServer(server).run()
 }
 
 func Run(ctx context.Context) {
 	serverBind := viper.GetString("server-bind")
-	protocol := viper.GetString("protocol")
-	RunServer(NewServer(ctx, serverBind, protocol))
+	RunServer(NewServer(ctx, serverBind))
 }

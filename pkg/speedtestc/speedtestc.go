@@ -1,20 +1,19 @@
 package speedtestc
 
 import (
-	"bufio"
 	"context"
+	"net"
+	"sync"
+	"time"
+
 	"github.com/sanmuyan/xpkg/xnet"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"net"
-	"net-tools/pkg/speedtest"
-	"sync"
-	"time"
 )
 
 type ClientConn interface {
 	run()
-	getTotalSize() int
+	getTotalSize() int64
 	getErrorCh() chan error
 }
 
@@ -24,7 +23,7 @@ type Client struct {
 	TestTime  int
 	Protocol  string
 	MaxThread int
-	TotalSize int
+	TotalSize int64
 	mu        sync.Mutex
 	ctx       context.Context
 	errCh     chan error
@@ -42,69 +41,13 @@ func NewClient(ctx context.Context, server string, mode string, testTime int, pr
 	}
 }
 
-func (c *Client) handleDownload(ctx context.Context, conn net.Conn) {
-	reader := bufio.NewReader(conn)
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-			data, err := reader.ReadBytes('\n')
-			if err != nil {
-				c.getErrorCh() <- err
-				return
-			}
-			go func() {
-				c.mu.Lock()
-				c.TotalSize += len(data)
-				c.mu.Unlock()
-			}()
-		}
-	}
-}
-
-func (c *Client) handleUpload(ctx context.Context, conn net.Conn) {
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				_, err := conn.Write(speedtest.PreMessage1024)
-				if err != nil {
-					c.getErrorCh() <- err
-					return
-				}
-			}
-		}
-	}()
-	// 等待服务端发送上传数据总和
-	speedtest.ReadAndUnmarshal(conn, func(msg *speedtest.Message, err error) (exit bool) {
-		if err != nil {
-			return true
-		}
-		c.mu.Lock()
-		c.TotalSize += int(msg.GetTotalSize())
-		c.mu.Unlock()
-		return true
-	})
-}
-
 func (c *Client) setConnDeadline(conn net.Conn) {
-	_ = conn.SetReadDeadline(time.Now().Add(time.Second * time.Duration(c.TestTime+5)))
-	_ = conn.SetWriteDeadline(time.Now().Add(time.Second * time.Duration(c.TestTime+5)))
+	_ = conn.SetReadDeadline(time.Now().Add(time.Second * 3))
+	_ = conn.SetWriteDeadline(time.Now().Add(time.Second * 3))
 }
 
-func (c *Client) getTotalSize() int {
+func (c *Client) getTotalSize() int64 {
 	return c.TotalSize
-}
-
-func (c *Client) createCtlMsg() []byte {
-	return speedtest.NewMessage(&speedtest.Options{
-		Ctl:      c.Mode,
-		TestTime: int32(c.TestTime),
-	}).Encode()
-
 }
 
 func (c *Client) getErrorCh() chan error {
@@ -120,20 +63,27 @@ func Run(ctx context.Context) {
 	client := NewClient(ctx, server, testMode, testTime, protocol, maxThread)
 
 	var c ClientConn
-	if client.Protocol == "tcp" {
+	switch protocol {
+	case "tcp":
 		c = NewTCPClient(client)
-	} else {
-		c = NewUDPClient(client)
+	default:
+		logrus.Fatalf("unknown protocol: %s", protocol)
 	}
-	var runTime int
-	t := time.NewTicker(time.Second)
-	defer t.Stop()
+	c = NewTCPClient(client)
 	go func() {
-		var latestSize int
-		for range t.C {
-			logrus.Infof("real-time speed: %s", xnet.GetDataSpeed(c.getTotalSize()-latestSize, 1))
-			latestSize = c.getTotalSize()
-			runTime += 1
+		var latestSize int64
+		for i := 0; i < client.TestTime; i++ {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				time.Sleep(time.Second)
+				if c.getTotalSize() == 0 || c.getTotalSize() == latestSize {
+					continue
+				}
+				logrus.Infof("real-time speed: %s", xnet.GetDataSpeed(int(c.getTotalSize()-latestSize), 1))
+				latestSize = c.getTotalSize()
+			}
 		}
 	}()
 	wg := new(sync.WaitGroup)
@@ -152,6 +102,6 @@ func Run(ctx context.Context) {
 		logrus.Errorf("error: %v", err)
 		return
 	default:
-		logrus.Infof("finished avg speed: %s", xnet.GetDataSpeed(c.getTotalSize(), testTime))
+		logrus.Infof("finished avg speed: %s", xnet.GetDataSpeed(int(c.getTotalSize()), testTime))
 	}
 }

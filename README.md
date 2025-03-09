@@ -49,7 +49,6 @@ time="2025-03-06 22:11:56" level=info msg="download finished in 127.0.0.1:59367"
 ```
 
 - `-s` 服务器监控地址，默认值`0.0.0.0:8080`
-- `-P` 服务器监听协议，默认值`tcp-udp`，可选项`tcp-udp|tcp|udp`
 
 ### 服务端
 
@@ -71,5 +70,5 @@ time="2025-03-06 22:11:56" level=info msg="finished avg speed: 337.53Mbps/s"
 
 - `-m` 测试模式，默认值`download`，可选项`download|upload`
 - `-t` 测试时间（秒），默认值`10`
-- `-P` 测试的协议，默认值`tcp`，可选项`tcp|udp`
+- `-P` 测试的协议，默认值`tcp`，可选项`tcp`
 - `-T` 测试并发连接，默认值`1`

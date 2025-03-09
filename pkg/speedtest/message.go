@@ -2,56 +2,57 @@ package speedtest
 
 import (
 	"bufio"
+	"github.com/sanmuyan/xpkg/xnet"
 	"google.golang.org/protobuf/proto"
 	"net"
 )
 
 //go:generate protoc --go_out=../ message.proto
 
-type Call func(msg *Message, err error) (exit bool)
+const (
+	NewTest = iota + 10000
+	NewData
+)
 
-type Message struct {
-	*Options
+const (
+	ReadBufferSize = 1024 * 1024
+	TCPDataSize    = 1024 * 128
+)
+
+func Unmarshal(data []byte) (*Message, error) {
+	msg := new(Message)
+	return msg, proto.Unmarshal(data, msg)
 }
 
-func NewMessage(m *Options) *Message {
-	return &Message{
-		Options: m,
+func Marshal(msg *Message) ([]byte, error) {
+	return proto.Marshal(msg)
+}
+
+func WriteTCP(msg *Message, conn net.Conn) error {
+	bp, err := Marshal(msg)
+	if err != nil {
+		return err
 	}
-}
-
-func (m *Message) Encode() []byte {
-	ba, _ := proto.Marshal(m)
-	return ba
-}
-
-func ReadAndUnmarshal(conn net.Conn, call Call) {
-	reader := bufio.NewReader(conn)
-	for {
-		buf := make([]byte, 1024)
-		n, err := reader.Read(buf)
-		m := NewMessage(&Options{})
-		err = proto.Unmarshal(buf[:n], m)
-		if err != nil {
-			call(nil, err)
-			return
-		}
-		if call(m, err) {
-			return
-		}
+	be, err := xnet.Encode(bp)
+	if err != nil {
+		return err
 	}
+	_, err = conn.Write(be)
+	return err
 }
 
-func UnmarshalUDP(data []byte) (*Message, error) {
-	m := NewMessage(&Options{})
-	return m, proto.Unmarshal(data, m)
+func ReadTCP(reader *bufio.Reader) (*Message, error) {
+	be, err := xnet.Decode(reader)
+	if err != nil {
+		return nil, err
+	}
+	return Unmarshal(be)
 }
 
-var PreMessage1024 = make([]byte, 1024)
+var PreMessageTCP = make([]byte, TCPDataSize)
 
 func init() {
-	for i := range PreMessage1024 {
-		PreMessage1024[i] = 'x'
+	for i := range PreMessageTCP {
+		PreMessageTCP[i] = 'x'
 	}
-	PreMessage1024[len(PreMessage1024)-1] = '\n'
 }

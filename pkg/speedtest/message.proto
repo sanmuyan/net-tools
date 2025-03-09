@@ -1,8 +1,9 @@
 syntax = "proto3";
-option go_package = "/message";
+option go_package = "/speedtest";
 
-message Options {
-  string  Ctl = 1;
+message Message {
+  int32  Ctl = 1;
   int32  TestTime = 2;
-  int64  TotalSize = 3;
+  string TestMode = 3;
+  bytes  Data = 4;
 }

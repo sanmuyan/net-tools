@@ -20,18 +20,19 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type Options struct {
+type Message struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Ctl       string `protobuf:"bytes,1,opt,name=Ctl,proto3" json:"Ctl,omitempty"`
-	TestTime  int32  `protobuf:"varint,2,opt,name=TestTime,proto3" json:"TestTime,omitempty"`
-	TotalSize int64  `protobuf:"varint,3,opt,name=TotalSize,proto3" json:"TotalSize,omitempty"`
+	Ctl      int32  `protobuf:"varint,1,opt,name=Ctl,proto3" json:"Ctl,omitempty"`
+	TestTime int32  `protobuf:"varint,2,opt,name=TestTime,proto3" json:"TestTime,omitempty"`
+	TestMode string `protobuf:"bytes,3,opt,name=TestMode,proto3" json:"TestMode,omitempty"`
+	Data     []byte `protobuf:"bytes,4,opt,name=Data,proto3" json:"Data,omitempty"`
 }
 
-func (x *Options) Reset() {
-	*x = Options{}
+func (x *Message) Reset() {
+	*x = Message{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_message_proto_msgTypes[0]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -39,13 +40,13 @@ func (x *Options) Reset() {
 	}
 }
 
-func (x *Options) String() string {
+func (x *Message) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*Options) ProtoMessage() {}
+func (*Message) ProtoMessage() {}
 
-func (x *Options) ProtoReflect() protoreflect.Message {
+func (x *Message) ProtoReflect() protoreflect.Message {
 	mi := &file_message_proto_msgTypes[0]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -57,43 +58,51 @@ func (x *Options) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Options.ProtoReflect.Descriptor instead.
-func (*Options) Descriptor() ([]byte, []int) {
+// Deprecated: Use Message.ProtoReflect.Descriptor instead.
+func (*Message) Descriptor() ([]byte, []int) {
 	return file_message_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *Options) GetCtl() string {
+func (x *Message) GetCtl() int32 {
 	if x != nil {
 		return x.Ctl
 	}
-	return ""
+	return 0
 }
 
-func (x *Options) GetTestTime() int32 {
+func (x *Message) GetTestTime() int32 {
 	if x != nil {
 		return x.TestTime
 	}
 	return 0
 }
 
-func (x *Options) GetTotalSize() int64 {
+func (x *Message) GetTestMode() string {
 	if x != nil {
-		return x.TotalSize
+		return x.TestMode
 	}
-	return 0
+	return ""
+}
+
+func (x *Message) GetData() []byte {
+	if x != nil {
+		return x.Data
+	}
+	return nil
 }
 
 var File_message_proto protoreflect.FileDescriptor
 
 var file_message_proto_rawDesc = []byte{
 	0x0a, 0x0d, 0x6d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x22,
-	0x55, 0x0a, 0x07, 0x4f, 0x70, 0x74, 0x69, 0x6f, 0x6e, 0x73, 0x12, 0x10, 0x0a, 0x03, 0x43, 0x74,
-	0x6c, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x03, 0x43, 0x74, 0x6c, 0x12, 0x1a, 0x0a, 0x08,
+	0x67, 0x0a, 0x07, 0x4d, 0x65, 0x73, 0x73, 0x61, 0x67, 0x65, 0x12, 0x10, 0x0a, 0x03, 0x43, 0x74,
+	0x6c, 0x18, 0x01, 0x20, 0x01, 0x28, 0x05, 0x52, 0x03, 0x43, 0x74, 0x6c, 0x12, 0x1a, 0x0a, 0x08,
 	0x54, 0x65, 0x73, 0x74, 0x54, 0x69, 0x6d, 0x65, 0x18, 0x02, 0x20, 0x01, 0x28, 0x05, 0x52, 0x08,
-	0x54, 0x65, 0x73, 0x74, 0x54, 0x69, 0x6d, 0x65, 0x12, 0x1c, 0x0a, 0x09, 0x54, 0x6f, 0x74, 0x61,
-	0x6c, 0x53, 0x69, 0x7a, 0x65, 0x18, 0x03, 0x20, 0x01, 0x28, 0x03, 0x52, 0x09, 0x54, 0x6f, 0x74,
-	0x61, 0x6c, 0x53, 0x69, 0x7a, 0x65, 0x42, 0x0a, 0x5a, 0x08, 0x2f, 0x6d, 0x65, 0x73, 0x73, 0x61,
-	0x67, 0x65, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x54, 0x65, 0x73, 0x74, 0x54, 0x69, 0x6d, 0x65, 0x12, 0x1a, 0x0a, 0x08, 0x54, 0x65, 0x73, 0x74,
+	0x4d, 0x6f, 0x64, 0x65, 0x18, 0x03, 0x20, 0x01, 0x28, 0x09, 0x52, 0x08, 0x54, 0x65, 0x73, 0x74,
+	0x4d, 0x6f, 0x64, 0x65, 0x12, 0x12, 0x0a, 0x04, 0x44, 0x61, 0x74, 0x61, 0x18, 0x04, 0x20, 0x01,
+	0x28, 0x0c, 0x52, 0x04, 0x44, 0x61, 0x74, 0x61, 0x42, 0x0c, 0x5a, 0x0a, 0x2f, 0x73, 0x70, 0x65,
+	0x65, 0x64, 0x74, 0x65, 0x73, 0x74, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -110,7 +119,7 @@ func file_message_proto_rawDescGZIP() []byte {
 
 var file_message_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_message_proto_goTypes = []interface{}{
-	(*Options)(nil), // 0: Options
+	(*Message)(nil), // 0: Message
 }
 var file_message_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type
@@ -127,7 +136,7 @@ func file_message_proto_init() {
 	}
 	if !protoimpl.UnsafeEnabled {
 		file_message_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Options); i {
+			switch v := v.(*Message); i {
 			case 0:
 				return &v.state
 			case 1:

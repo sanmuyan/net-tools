@@ -75,10 +75,9 @@ func init() {
 	tcpPingCmd.Flags().IntP("count", "C", 4, "count")
 	tcpPingCmd.Flags().IntP("interval", "i", 1000, "interval (ms)")
 
-	speedTestsCmd.Flags().StringP("protocol", "p", "tcp-udp", "server protocol (tcp-udp|tcp|udp)")
 	speedTestsCmd.Flags().StringP("server-bind", "s", ":8080", "server bind addr")
 
-	speedTestcCmd.Flags().StringP("protocol", "P", "tcp", "test protocol (tcp|udp)")
+	speedTestcCmd.Flags().StringP("protocol", "P", "tcp", "test protocol (tcp)")
 	speedTestcCmd.Flags().StringP("server-addr", "s", "localhost:8080", "server addr")
 	speedTestcCmd.Flags().IntP("test-time", "t", 10, "test time (s)")
 	speedTestcCmd.Flags().StringP("test-mode", "m", "download", "test mode (download|upload)")
