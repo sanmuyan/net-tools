@@ -71,12 +71,14 @@ func Run(ctx context.Context, args []string) {
 	var ip string
 	var port string
 
-	if len(args) == 2 {
+	if len(args) >= 1 {
 		ip = args[0]
-		port = args[1]
 	}
 	if !xnet.IsIP(ip) && !xnet.IsCIDR(ip) && !xnet.IsIPRange(ip) {
 		loger.S.Fatalf("Invalid ip: %v", ip)
+	}
+	if len(args) >= 2 {
+		port = args[1]
 	}
 	if !xnet.IsPort(port) {
 		loger.S.Fatalf("Invalid port: %v", port)

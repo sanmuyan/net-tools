@@ -18,9 +18,10 @@ type TCPPing struct {
 	Port     int
 	Timeout  int64
 	Protocol string
+	WithTLS  bool
 }
 
-func NewTCPPing(host string, port int, timeout int64, protocol string) *TCPPing {
+func NewTCPPing(host string, port int, timeout int64, protocol string, withTLS bool) *TCPPing {
 	if port < 0 || port > 65535 {
 		port = 22
 	}
@@ -31,13 +32,11 @@ func NewTCPPing(host string, port int, timeout int64, protocol string) *TCPPing 
 		timeout = 100000
 	}
 	// timeout * 1000 程序内部使用微妙
-	return &TCPPing{Host: host, Port: port, Timeout: timeout * 1000, Protocol: protocol}
+	return &TCPPing{Host: host, Port: port, Timeout: timeout * 1000, Protocol: protocol, WithTLS: withTLS}
 }
 
 var (
-	writeError = errors.New(fmt.Sprintf("write error"))
-	readError  = errors.New(fmt.Sprintf("read timeout"))
-	timeoutMsg = fmt.Sprintf("timeout")
+	timeoutMsg = errors.New(fmt.Sprintf("timeout"))
 )
 
 func (t *TCPPing) httpHelloMessage() []byte {
@@ -47,45 +46,45 @@ func (t *TCPPing) httpHelloMessage() []byte {
 func (t *TCPPing) httpHello(conn net.Conn) error {
 	_, err := conn.Write(t.httpHelloMessage())
 	if err != nil {
-		return writeError
+		return err
 	}
 	_, err = conn.Read([]byte(""))
 	if err != nil {
-		return readError
-	}
-	return nil
-}
-
-func (t *TCPPing) readHello(conn net.Conn) error {
-	_, err := conn.Read([]byte(""))
-	if err != nil {
-		return readError
+		return err
 	}
 	return nil
 }
 
 func (t *TCPPing) httpsHello(conn net.Conn) error {
-	tlsConfig := &tls.Config{
-		InsecureSkipVerify: true,
-	}
-	tlsConn := tls.Client(conn, tlsConfig)
-	_, err := tlsConn.Write(t.httpHelloMessage())
+	_, err := conn.Write(t.httpHelloMessage())
 	if err != nil {
-		return writeError
+		return err
 	}
 	_, err = conn.Read([]byte(""))
 	if err != nil {
-		return readError
+		return err
 	}
 	return nil
 }
 
-func (t *TCPPing) PING(errorMessage chan string, pingTime chan float32) {
+func (t *TCPPing) PING(errorMessage chan error, pingTime chan float32) {
 	starTime := time.Now().UnixMicro()
-	conn, err := net.DialTimeout("tcp", fmt.Sprintf("%s:%d", t.Host, t.Port), time.Duration(t.Timeout)*time.Microsecond)
-	if err != nil {
-		errorMessage <- timeoutMsg
-		return
+	var err error
+	var conn net.Conn
+	if t.WithTLS {
+		var tlsConn *tls.Conn
+		tlsConn, err := tls.Dial("tcp", fmt.Sprintf("%s:%d", t.Host, t.Port), &tls.Config{InsecureSkipVerify: true})
+		if err != nil {
+			errorMessage <- err
+			return
+		}
+		conn = tlsConn.NetConn()
+	} else {
+		conn, err = net.DialTimeout("tcp", fmt.Sprintf("%s:%d", t.Host, t.Port), time.Duration(t.Timeout)*time.Microsecond)
+		if err != nil {
+			errorMessage <- err
+			return
+		}
 	}
 	defer func() {
 		_ = conn.Close()
@@ -103,13 +102,10 @@ func (t *TCPPing) PING(errorMessage chan string, pingTime chan float32) {
 	switch t.Protocol {
 	case "http":
 		err = t.httpHello(conn)
-	case "read":
-		err = t.readHello(conn)
-	case "https":
-		err = t.httpsHello(conn)
+	default:
 	}
 	if err != nil {
-		errorMessage <- fmt.Sprintf("%s", err)
+		errorMessage <- err
 		return
 	}
 	pt = time.Now().Add(time.Microsecond).UnixMicro() - starTime
@@ -125,12 +121,12 @@ func Run(ctx context.Context, args []string) {
 	timeout := viper.GetInt("timeout")
 	count := viper.GetInt("count")
 	interval := viper.GetInt("interval")
+	withTLS := viper.GetBool("tls")
 
 	var host string
 	var port string
-	if len(args) == 2 {
+	if len(args) >= 1 {
 		host = args[0]
-		port = args[1]
 	}
 	if !xnet.IsIP(host) {
 		_, err := net.LookupHost(host)
@@ -138,12 +134,15 @@ func Run(ctx context.Context, args []string) {
 			loger.S.Fatalf("ping: Name or service not known %s", host)
 		}
 	}
-	if !xnet.IsPort(port) {
-		loger.S.Fatalf("ping: Invalid por %s", port)
+	if len(args) >= 2 {
+		port = args[1]
+	}
+	if !xnet.IsPort(port) || port == "" {
+		loger.S.Fatalf("ping: Invalid port %s", port)
 	}
 	portInt, _ := strconv.Atoi(port)
-	p := NewTCPPing(host, portInt, int64(timeout), protocol)
-	errorMessage := make(chan string)
+	p := NewTCPPing(host, portInt, int64(timeout), protocol, withTLS)
+	errorMessage := make(chan error)
 	pingTime := make(chan float32)
 	go func() {
 		for i := 0; i < count; i++ {

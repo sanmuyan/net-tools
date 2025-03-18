@@ -1,5 +1,5 @@
 $commands = @{
-    "nettools" = "net-tools"
+    "nettools" = "nts"
 }
 $build_data = @{
     "linux"   = @{

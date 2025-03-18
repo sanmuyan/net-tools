@@ -27,14 +27,14 @@ Success=4, Error=0, Max=20ms, Min=9ms, Avg=13ms
 
 - `-c` PING 的次数，默认值`4`
 - `-i` 每次 PING 的间隔（毫秒），默认值`1000`
-- `-P` 指定协议，默认值`tcp`，可选项 `tcp|http|https|read`
+- `-P` 指定协议，默认值`tcp`，可选项 `tcp|http`
 - `-T` PING 超时时间
+- `--tls` 使用 `TLS` 建立连接
 
 ### 协议说明
 
-- `tcp` 建立TCP 连接后即认为成功
-- `http` 主动发送一个 HTTP `HEAD`请求，并读取 HTTP 服务器响应
-- `read` 建立连接后，读取一次服务端发送的`hello`包
+- `tcp` 建立 TCP 连接后即认为成功
+- `http` 建立 TCP 连接后，主动发送一个 HTTP `HEAD`请求，并读取 HTTP 服务器响应
 
 ## 带宽测试
 
