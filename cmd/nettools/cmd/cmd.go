@@ -78,7 +78,7 @@ func init() {
 
 	speedTestsCmd.Flags().StringP("server-bind", "s", ":8080", "server bind addr")
 
-	// speedTestcCmd.Flags().StringP("protocol", "P", "tcp", "test protocol (tcp)")
+	speedTestcCmd.Flags().StringP("protocol", "P", "tcp", "test protocol (tcp)")
 	speedTestcCmd.Flags().StringP("server-addr", "s", "localhost:8080", "server addr")
 	speedTestcCmd.Flags().IntP("test-time", "t", 10, "test time (s)")
 	speedTestcCmd.Flags().StringP("test-mode", "m", "download", "test mode (download|upload)")
