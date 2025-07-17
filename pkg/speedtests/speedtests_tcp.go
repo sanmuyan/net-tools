@@ -30,7 +30,7 @@ func (s *TCPServer) handleDownload(ctx context.Context, conn net.Conn) {
 		case <-ctx.Done():
 			return
 		default:
-			err := speedtest.WriteTCP(&speedtest.Message{
+			err := speedtest.WriteTCP(&speedtest.StMessage{
 				Ctl:  speedtest.NewData,
 				Data: speedtest.PreMessageTCP,
 			}, conn)

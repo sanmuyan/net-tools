@@ -1,0 +1,7 @@
+syntax = "proto3";
+option go_package = "/nettest";
+
+message NtMessage {
+  int32  Ctl = 1;
+  string RequestID = 3;
+}

@@ -1,7 +1,7 @@
 syntax = "proto3";
 option go_package = "/speedtest";
 
-message Message {
+message StMessage {
   int32  Ctl = 1;
   int32  TestTime = 2;
   string TestMode = 3;

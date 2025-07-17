@@ -59,7 +59,7 @@ func (c *TCPClient) handleUpload(ctx context.Context, conn net.Conn) {
 			return
 		default:
 			c.setConnDeadline(conn)
-			err := speedtest.WriteTCP(&speedtest.Message{
+			err := speedtest.WriteTCP(&speedtest.StMessage{
 				Ctl:  speedtest.NewData,
 				Data: speedtest.PreMessageTCP,
 			}, conn)
@@ -79,7 +79,7 @@ func (c *TCPClient) run() {
 		_ = conn.Close()
 	}()
 	logrus.Infof("tcp %s testing to %s", c.Mode, c.Server)
-	err := speedtest.WriteTCP(&speedtest.Message{
+	err := speedtest.WriteTCP(&speedtest.StMessage{
 		Ctl:      speedtest.NewTest,
 		TestTime: int32(c.TestTime),
 		TestMode: c.Mode,

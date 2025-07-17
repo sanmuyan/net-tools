@@ -3,6 +3,8 @@ module net-tools
 go 1.22.1
 
 require (
+	github.com/google/uuid v1.4.0
+	github.com/gorilla/websocket v1.5.3
 	github.com/sanmuyan/xpkg v0.1.33
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.9.1

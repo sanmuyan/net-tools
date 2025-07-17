@@ -4,6 +4,8 @@ import (
 	"context"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"net-tools/pkg/nettestc"
+	"net-tools/pkg/nettests"
 	"net-tools/pkg/portscan"
 	"net-tools/pkg/speedtestc"
 	"net-tools/pkg/speedtests"
@@ -55,6 +57,22 @@ var speedTestcCmd = &cobra.Command{
 	},
 }
 
+var netTestsCmd = &cobra.Command{
+	Use:   "nts",
+	Short: "Network test server",
+	Run: func(cmd *cobra.Command, args []string) {
+		nettests.Run(rootCtx)
+	},
+}
+
+var netTestcCmd = &cobra.Command{
+	Use:   "ntc",
+	Short: "Network test client",
+	Run: func(cmd *cobra.Command, args []string) {
+		nettestc.Run(rootCtx)
+	},
+}
+
 var configFile string
 
 const (
@@ -84,7 +102,17 @@ func init() {
 	speedTestcCmd.Flags().StringP("test-mode", "m", "download", "test mode (download|upload)")
 	speedTestcCmd.Flags().IntP("max-thread", "T", 1, "test max thread")
 
-	rootCmd.AddCommand(portScanCmd, tcpPingCmd, speedTestsCmd, speedTestcCmd)
+	netTestsCmd.Flags().StringP("server-bind", "s", ":8080", "server bind addr")
+	netTestsCmd.Flags().StringP("protocol", "P", "tcp", "test protocol (tcp|udp|http|ws)")
+	netTestsCmd.Flags().Uint32P("timeout", "t", 1000*5, "client timeout (ms)")
+
+	netTestcCmd.Flags().StringP("server-addr", "s", "localhost:8080", "server addr")
+	netTestcCmd.Flags().StringP("protocol", "P", "tcp", "test protocol (tcp|udp|http|ws)")
+	netTestcCmd.Flags().Uint32P("timeout", "T", 1000*5, "server timeout (ms)")
+	netTestcCmd.Flags().Uint32P("interval", "i", 1000, "test interval (ms)")
+	netTestcCmd.Flags().Uint32P("max-thread", "t", 1, "test max thread")
+
+	rootCmd.AddCommand(portScanCmd, tcpPingCmd, speedTestsCmd, speedTestcCmd, netTestsCmd, netTestcCmd)
 }
 
 func Execute(ctx context.Context) {

@@ -7,7 +7,7 @@ import (
 	"net"
 )
 
-//go:generate protoc --go_out=../ message.proto
+//go:generate protoc --go_out=../ st_message.proto
 
 const (
 	NewTest = iota + 10000
@@ -19,16 +19,16 @@ const (
 	TCPDataSize    = 1024 * 128
 )
 
-func Unmarshal(data []byte) (*Message, error) {
-	msg := new(Message)
+func Unmarshal(data []byte) (*StMessage, error) {
+	msg := new(StMessage)
 	return msg, proto.Unmarshal(data, msg)
 }
 
-func Marshal(msg *Message) ([]byte, error) {
+func Marshal(msg *StMessage) ([]byte, error) {
 	return proto.Marshal(msg)
 }
 
-func WriteTCP(msg *Message, conn net.Conn) error {
+func WriteTCP(msg *StMessage, conn net.Conn) error {
 	bp, err := Marshal(msg)
 	if err != nil {
 		return err
@@ -41,7 +41,7 @@ func WriteTCP(msg *Message, conn net.Conn) error {
 	return err
 }
 
-func ReadTCP(reader *bufio.Reader) (*Message, error) {
+func ReadTCP(reader *bufio.Reader) (*StMessage, error) {
 	be, err := xnet.Decode(reader)
 	if err != nil {
 		return nil, err
