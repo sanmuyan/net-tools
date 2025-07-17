@@ -1,11 +1,11 @@
-package nettests
+package netbenchs
 
 import (
 	"bufio"
 	"context"
 	"github.com/sirupsen/logrus"
 	"net"
-	"net-tools/pkg/nettest"
+	"net-tools/pkg/netbench"
 )
 
 type TCPServer struct {
@@ -21,22 +21,22 @@ func (s *TCPServer) replyHandler(ctx context.Context, conn net.Conn) {
 		_ = conn.Close()
 		logrus.Debugf("tcp test finished in %s", conn.RemoteAddr())
 	}()
-	reader := bufio.NewReaderSize(conn, nettest.ReadBufferSize)
+	reader := bufio.NewReaderSize(conn, netbench.ReadBufferSize)
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		default:
 			s.setConnDeadline(conn)
-			receiveMsg, err := nettest.ReadTCP(reader)
+			receiveMsg, err := netbench.ReadTCP(reader)
 			if err != nil {
 				logrus.Debugf("failed to read: %v %s", err, conn.RemoteAddr())
 				return
 			}
-			logrus.Infof("tcp message: %s from %s", receiveMsg.GetRequestID(), conn.RemoteAddr())
-			sendMsg := nettest.GenerateMessage(receiveMsg.GetRequestID())
-			logrus.Debugf("tcp message: %s to %s", sendMsg.GetRequestID(), conn.RemoteAddr())
-			err = nettest.WriteTCP(sendMsg, conn)
+			logrus.Infof("%s message: %s from %s", s.Protocol, receiveMsg.GetRequestID(), conn.RemoteAddr())
+			sendMsg := netbench.GenerateMessage(receiveMsg.GetRequestID())
+			logrus.Debugf("%s message: %s to %s", s.Protocol, sendMsg.GetRequestID(), conn.RemoteAddr())
+			err = netbench.WriteTCP(sendMsg, conn)
 			if err != nil {
 				logrus.Warnf("failed to write: %v %s", err, conn.RemoteAddr())
 				return
@@ -53,7 +53,7 @@ func (s *TCPServer) run() {
 	defer func() {
 		_ = listener.Close()
 	}()
-	logrus.Infof("tcp server listening on %s", s.ServerBind)
+	logrus.Infof("%s server listening on %s", s.Protocol, s.ServerBind)
 	go func() {
 		for {
 			conn, err := listener.Accept()

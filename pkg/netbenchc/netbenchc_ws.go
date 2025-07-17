@@ -1,4 +1,4 @@
-package nettestc
+package netbenchc
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/sanmuyan/xpkg/xutil"
 	"github.com/sirupsen/logrus"
-	"net-tools/pkg/nettest"
+	"net-tools/pkg/netbench"
 	"sync"
 	"time"
 )
@@ -29,11 +29,11 @@ func (c *WSClient) sendHandler(ctx context.Context, conn *websocket.Conn) {
 			return
 		default:
 			startTime := time.Now().UnixMilli()
-			sendMsg := nettest.GenerateMessage(nettest.GenerateRequestID())
-			logrus.Debugf("ws message: %s to %s", sendMsg.RequestID, conn.RemoteAddr())
-			err := conn.WriteMessage(websocket.TextMessage, xutil.RemoveError(nettest.Marshal(sendMsg)))
+			sendMsg := netbench.GenerateMessage(netbench.GenerateRequestID())
+			logrus.Debugf("%s message: %s to %s", c.Protocol, sendMsg.RequestID, conn.RemoteAddr())
+			err := conn.WriteMessage(websocket.TextMessage, xutil.RemoveError(netbench.Marshal(sendMsg)))
 			if err != nil {
-				logrus.Warnf("failed to write to tcp server: %v", err)
+				logrus.Warnf("failed to write:: %v", err)
 				return
 			}
 			_ = conn.SetReadDeadline(time.Now().Add(c.Timeout))
@@ -42,13 +42,13 @@ func (c *WSClient) sendHandler(ctx context.Context, conn *websocket.Conn) {
 				logrus.Warnf("failed to read: %v %s", err, conn.RemoteAddr())
 				return
 			}
-			receiveMsg, err := nettest.Unmarshal(data)
+			receiveMsg, err := netbench.Unmarshal(data)
 			if err != nil {
 				logrus.Warnf("failed to unmarshal: %s %s", err, conn.RemoteAddr())
 				return
 			}
 			endTime := time.Now().UnixMilli()
-			logrus.Infof("ws message: %s from %s %dms", receiveMsg.GetRequestID(), conn.RemoteAddr(), endTime-startTime)
+			logrus.Infof("%s message: %s from %s %dms", c.Protocol, receiveMsg.GetRequestID(), conn.RemoteAddr(), endTime-startTime)
 		}
 		time.Sleep(c.Interval)
 	}
@@ -63,7 +63,7 @@ func (c *WSClient) run(wg *sync.WaitGroup) {
 	}
 	defer func() {
 		_ = conn.Close()
-		logrus.Debugf("ws test finished in %s", conn.RemoteAddr())
+		logrus.Debugf("%s test finished in %s", c.Protocol, conn.RemoteAddr())
 	}()
 	c.sendHandler(c.ctx, conn)
 }

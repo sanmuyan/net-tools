@@ -1,4 +1,4 @@
-package nettests
+package netbenchs
 
 import (
 	"context"
@@ -39,7 +39,7 @@ func RunServer(server *Server) {
 		serverConn = NewTCPServer(server)
 	case "udp":
 		serverConn = NewUDPServer(server)
-	case "http", "ws":
+	case "http", "ws", "https":
 		serverConn = NewHTTPServer(server)
 	default:
 		logrus.Fatalf("unknown protocol: %s", server.Protocol)

@@ -1,11 +1,11 @@
-package nettests
+package netbenchs
 
 import (
 	"context"
 	"github.com/sanmuyan/xpkg/xutil"
 	"github.com/sirupsen/logrus"
 	"net"
-	"net-tools/pkg/nettest"
+	"net-tools/pkg/netbench"
 )
 
 type UDPServer struct {
@@ -22,15 +22,15 @@ func (s *UDPServer) replyHandler(ctx context.Context, addr net.Addr, data []byte
 	case <-ctx.Done():
 		return
 	default:
-		receiveMsg, err := nettest.Unmarshal(data)
+		receiveMsg, err := netbench.Unmarshal(data)
 		if err != nil {
 			logrus.Warnf("failed to unmarshal message: %s", err)
 			return
 		}
-		logrus.Infof("udp message: %s from %s", receiveMsg.GetRequestID(), addr)
-		sendMsg := nettest.GenerateMessage(receiveMsg.GetRequestID())
-		logrus.Debugf("udp message: %s to %s", sendMsg.GetRequestID(), addr)
-		_, err = s.conn.WriteTo(xutil.RemoveError(nettest.Marshal(sendMsg)), addr)
+		logrus.Infof("%s message: %s from %s", s.Protocol, receiveMsg.GetRequestID(), addr)
+		sendMsg := netbench.GenerateMessage(receiveMsg.GetRequestID())
+		logrus.Debugf("%s message: %s to %s", s.Protocol, sendMsg.GetRequestID(), addr)
+		_, err = s.conn.WriteTo(xutil.RemoveError(netbench.Marshal(sendMsg)), addr)
 		if err != nil {
 			logrus.Warnf("failed to write: %s %s", err, s.conn.RemoteAddr())
 			return
@@ -47,10 +47,10 @@ func (s *UDPServer) run() {
 	defer func() {
 		_ = s.conn.Close()
 	}()
-	logrus.Infof("udp server listening on %s", s.ServerBind)
+	logrus.Infof("%s server listening on %s", s.Protocol, s.ServerBind)
 	go func() {
 		for {
-			data := make([]byte, nettest.ReadBufferSize)
+			data := make([]byte, netbench.ReadBufferSize)
 			n, addr, err := s.conn.ReadFrom(data)
 			if err != nil {
 				logrus.Warnf("failed to read: %v %s", err, addr)

@@ -1,11 +1,11 @@
-package nettestc
+package netbenchc
 
 import (
 	"bufio"
 	"context"
 	"github.com/sirupsen/logrus"
 	"net"
-	"net-tools/pkg/nettest"
+	"net-tools/pkg/netbench"
 	"sync"
 	"time"
 )
@@ -21,7 +21,7 @@ func NewTCPClient(client *Client) *TCPClient {
 }
 
 func (c *TCPClient) sendHandler(ctx context.Context, conn net.Conn) {
-	reader := bufio.NewReaderSize(conn, nettest.ReadBufferSize)
+	reader := bufio.NewReaderSize(conn, netbench.ReadBufferSize)
 	for {
 		select {
 		case <-ctx.Done():
@@ -29,21 +29,21 @@ func (c *TCPClient) sendHandler(ctx context.Context, conn net.Conn) {
 			return
 		default:
 			startTime := time.Now().UnixMilli()
-			sendMsg := nettest.GenerateMessage(nettest.GenerateRequestID())
-			logrus.Debugf("tcp message: %s to %s", sendMsg.GetRequestID(), conn.RemoteAddr())
-			err := nettest.WriteTCP(sendMsg, conn)
+			sendMsg := netbench.GenerateMessage(netbench.GenerateRequestID())
+			logrus.Debugf("%s message: %s to %s", c.Protocol, sendMsg.GetRequestID(), conn.RemoteAddr())
+			err := netbench.WriteTCP(sendMsg, conn)
 			if err != nil {
 				logrus.Warnf("failed to write: %v %s", err, conn.RemoteAddr())
 				return
 			}
 			c.setConnDeadline(conn)
-			receiveMsg, err := nettest.ReadTCP(reader)
+			receiveMsg, err := netbench.ReadTCP(reader)
 			if err != nil {
 				logrus.Warnf("failed to read: %v %s", err, conn.RemoteAddr())
 				return
 			}
 			endTime := time.Now().UnixMilli()
-			logrus.Infof("tcp message: %sfrom %s %dms", receiveMsg.GetRequestID(), conn.RemoteAddr(), endTime-startTime)
+			logrus.Infof("%s message: %sfrom %s %dms", c.Protocol, receiveMsg.GetRequestID(), conn.RemoteAddr(), endTime-startTime)
 		}
 		time.Sleep(c.Interval)
 	}
@@ -58,9 +58,9 @@ func (c *TCPClient) run(wg *sync.WaitGroup) {
 	}
 	defer func() {
 		_ = conn.Close()
-		logrus.Debugf("tcp test finished in %s", conn.RemoteAddr())
+		logrus.Debugf("%s test finished in %s", c.Protocol, conn.RemoteAddr())
 	}()
-	logrus.Debugf("tcp %s testing to %s", c.Protocol, c.Server)
+	logrus.Debugf("%s testing to %s", c.Protocol, c.Server)
 	c.sendHandler(c.ctx, conn)
 }
 

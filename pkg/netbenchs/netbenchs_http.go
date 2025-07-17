@@ -1,12 +1,13 @@
-package nettests
+package netbenchs
 
 import (
 	"context"
 	"github.com/gorilla/websocket"
+	"github.com/sanmuyan/xpkg/xcrypto"
 	"github.com/sanmuyan/xpkg/xutil"
 	"github.com/sirupsen/logrus"
 	"io"
-	"net-tools/pkg/nettest"
+	"net-tools/pkg/netbench"
 	"net/http"
 	"time"
 )
@@ -29,21 +30,21 @@ func (s *HTTPServer) wsHandler(ctx context.Context, conn *websocket.Conn) {
 				logrus.Debugf("failed to read: %v %s", err, conn.RemoteAddr())
 				return
 			}
-			receiveMsg, err := nettest.Unmarshal(data)
+			receiveMsg, err := netbench.Unmarshal(data)
 			if err != nil {
 				logrus.Warnf("failed to unmarshal: %s %s", err, conn.RemoteAddr())
 				return
 			}
-			logrus.Infof("ws message: %s from %s", receiveMsg.GetRequestID(), conn.RemoteAddr())
-			sendMsg := nettest.GenerateMessage(receiveMsg.GetRequestID())
-			logrus.Infof("ws message: %s to %s", sendMsg.GetRequestID(), conn.RemoteAddr())
-			err = conn.WriteMessage(messageType, xutil.RemoveError(nettest.Marshal(sendMsg)))
+			logrus.Infof("%s message: %s from %s", s.Protocol, receiveMsg.GetRequestID(), conn.RemoteAddr())
+			sendMsg := netbench.GenerateMessage(receiveMsg.GetRequestID())
+			logrus.Infof("%s message: %s to %s", s.Protocol, sendMsg.GetRequestID(), conn.RemoteAddr())
+			err = conn.WriteMessage(messageType, xutil.RemoveError(netbench.Marshal(sendMsg)))
 			if err != nil {
 				logrus.Warnf("failed to write: %s %s", err, conn.RemoteAddr())
 				return
 			}
 		case <-ctx.Done():
-			logrus.Debugf("ws test finished in %s", conn.RemoteAddr())
+			logrus.Debugf("%s test finished in %s", s.Protocol, conn.RemoteAddr())
 			return
 		}
 	}
@@ -55,15 +56,15 @@ func (s *HTTPServer) httpHandler(w http.ResponseWriter, r *http.Request) {
 		logrus.Debugf("failed to read: %s %s", err, r.RemoteAddr)
 		return
 	}
-	receiveMsg, err := nettest.Unmarshal(data)
+	receiveMsg, err := netbench.Unmarshal(data)
 	if err != nil {
 		logrus.Warnf("failed to unmarshal: %s %s", err, r.RemoteAddr)
 		return
 	}
-	logrus.Infof("http message: %s from %s", receiveMsg.GetRequestID(), r.RemoteAddr)
-	sendMsg := nettest.GenerateMessage(receiveMsg.GetRequestID())
-	logrus.Debugf("http message: %s to %s", sendMsg.GetRequestID(), r.RemoteAddr)
-	_, err = w.Write(xutil.RemoveError(nettest.Marshal(sendMsg)))
+	logrus.Infof("%s message: %s from %s", s.Protocol, receiveMsg.GetRequestID(), r.RemoteAddr)
+	sendMsg := netbench.GenerateMessage(receiveMsg.GetRequestID())
+	logrus.Debugf("%s message: %s to %s", s.Protocol, sendMsg.GetRequestID(), r.RemoteAddr)
+	_, err = w.Write(xutil.RemoveError(netbench.Marshal(sendMsg)))
 	if err != nil {
 		logrus.Warnf("failed to write: %s %s", err, r.RemoteAddr)
 	}
@@ -72,13 +73,15 @@ func (s *HTTPServer) httpHandler(w http.ResponseWriter, r *http.Request) {
 var upgrader = websocket.Upgrader{}
 
 func (s *HTTPServer) run() {
+	tlsConfig := xutil.RemoveError(xcrypto.CreateCertToTLS(nil))
 	r := http.NewServeMux()
 	srv := &http.Server{
 		Addr:        s.ServerBind,
 		Handler:     r,
 		ReadTimeout: s.Timeout,
+		TLSConfig:   tlsConfig,
 	}
-	r.HandleFunc("/http", s.httpHandler)
+	r.HandleFunc("/ping", s.httpHandler)
 	r.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
@@ -91,12 +94,17 @@ func (s *HTTPServer) run() {
 		s.wsHandler(s.ctx, conn)
 	})
 	go func() {
-		err := srv.ListenAndServe()
+		var err error
+		if s.Protocol == "https" {
+			err = srv.ListenAndServeTLS("", "")
+		} else {
+			err = srv.ListenAndServe()
+		}
 		if err != nil {
 			logrus.Fatalf("listen error: %v", err)
 		}
 	}()
-	logrus.Infof("http and ws server listening on %s", s.ServerBind)
+	logrus.Infof("%s server listening on %s", s.Protocol, s.ServerBind)
 	<-s.ctx.Done()
 	_ = srv.Shutdown(context.Background())
 }

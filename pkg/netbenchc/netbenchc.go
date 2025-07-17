@@ -1,4 +1,4 @@
-package nettestc
+package netbenchc
 
 import (
 	"context"
@@ -47,7 +47,7 @@ func RunClient(client *Client) {
 		clientConn = NewUDPClient(client)
 	case "ws":
 		clientConn = NewWSClient(client)
-	case "http":
+	case "http", "https":
 		clientConn = NewHTTPClient(client)
 	default:
 		logrus.Fatalf("unknown protocol: %s", client.Protocol)

@@ -1,7 +1,7 @@
 syntax = "proto3";
-option go_package = "/nettest";
+option go_package = "/netbench";
 
-message NtMessage {
+message NbMessage {
   int32  Ctl = 1;
   string RequestID = 3;
 }

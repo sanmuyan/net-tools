@@ -1,11 +1,11 @@
-package nettestc
+package netbenchc
 
 import (
 	"context"
 	"github.com/sanmuyan/xpkg/xutil"
 	"github.com/sirupsen/logrus"
 	"net"
-	"net-tools/pkg/nettest"
+	"net-tools/pkg/netbench"
 	"sync"
 	"time"
 )
@@ -28,27 +28,27 @@ func (c *UDPClient) sendHandler(ctx context.Context) {
 			return
 		default:
 			startTime := time.Now().UnixMilli()
-			sendMsg := nettest.GenerateMessage(nettest.GenerateRequestID())
-			logrus.Debugf("udp message: %s to %s", sendMsg.GetRequestID(), c.conn.RemoteAddr())
-			_, err := c.conn.Write(xutil.RemoveError(nettest.Marshal(sendMsg)))
+			sendMsg := netbench.GenerateMessage(netbench.GenerateRequestID())
+			logrus.Debugf("%s message: %s to %s", c.Protocol, sendMsg.GetRequestID(), c.conn.RemoteAddr())
+			_, err := c.conn.Write(xutil.RemoveError(netbench.Marshal(sendMsg)))
 			if err != nil {
 				logrus.Warnf("failed to write: %s %s", err, c.conn.RemoteAddr())
 				return
 			}
 			c.setConnDeadline(c.conn)
-			data := make([]byte, nettest.ReadBufferSize)
+			data := make([]byte, netbench.ReadBufferSize)
 			n, err := c.conn.Read(data)
 			if err != nil {
 				logrus.Warnf("failed to read: %s %s", err, c.conn.RemoteAddr())
 				return
 			}
-			receiveMsg, err := nettest.Unmarshal(data[:n])
+			receiveMsg, err := netbench.Unmarshal(data[:n])
 			if err != nil {
 				logrus.Warnf("failed to unmarshal: %s %s", err, c.conn.RemoteAddr())
 				return
 			}
 			endTime := time.Now().UnixMilli()
-			logrus.Infof("udp message: %s from %s %dms", receiveMsg.GetRequestID(), c.conn.RemoteAddr(), endTime-startTime)
+			logrus.Infof("%s message: %s from %s %dms", c.Protocol, receiveMsg.GetRequestID(), c.conn.RemoteAddr(), endTime-startTime)
 		}
 		time.Sleep(c.Interval)
 	}
@@ -59,7 +59,7 @@ func (c *UDPClient) run(wg *sync.WaitGroup) {
 	c.conn = c.createConn()
 	defer func() {
 		_ = c.conn.Close()
-		logrus.Debugf("udp test finished in %s", c.conn.RemoteAddr())
+		logrus.Debugf("%s test finished in %s", c.Protocol, c.conn.RemoteAddr())
 	}()
 	c.sendHandler(c.ctx)
 }
