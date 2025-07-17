@@ -1,4 +1,4 @@
-package netbenchc
+package benchtestc
 
 import (
 	"context"
@@ -6,7 +6,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/sanmuyan/xpkg/xutil"
 	"github.com/sirupsen/logrus"
-	"net-tools/pkg/netbench"
+	"net-tools/pkg/benchtest"
 	"sync"
 	"time"
 )
@@ -22,16 +22,16 @@ func NewWSClient(client *Client) *WSClient {
 }
 
 func (c *WSClient) sendHandler(ctx context.Context, conn *websocket.Conn) {
-	for {
+	for i := 0; i < c.MaxMessages || c.MaxMessages <= 0; i++ {
 		select {
 		case <-ctx.Done():
 			_ = conn.Close()
 			return
 		default:
 			startTime := time.Now().UnixMilli()
-			sendMsg := netbench.GenerateMessage(netbench.GenerateRequestID())
+			sendMsg := benchtest.GenerateMessage(benchtest.GenerateRequestID())
 			logrus.Debugf("%s message: %s to %s", c.Protocol, sendMsg.RequestID, conn.RemoteAddr())
-			err := conn.WriteMessage(websocket.TextMessage, xutil.RemoveError(netbench.Marshal(sendMsg)))
+			err := conn.WriteMessage(websocket.TextMessage, xutil.RemoveError(benchtest.Marshal(sendMsg)))
 			if err != nil {
 				logrus.Warnf("failed to write:: %v", err)
 				return
@@ -42,7 +42,7 @@ func (c *WSClient) sendHandler(ctx context.Context, conn *websocket.Conn) {
 				logrus.Warnf("failed to read: %v %s", err, conn.RemoteAddr())
 				return
 			}
-			receiveMsg, err := netbench.Unmarshal(data)
+			receiveMsg, err := benchtest.Unmarshal(data)
 			if err != nil {
 				logrus.Warnf("failed to unmarshal: %s %s", err, conn.RemoteAddr())
 				return

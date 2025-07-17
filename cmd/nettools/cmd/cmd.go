@@ -4,8 +4,8 @@ import (
 	"context"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"net-tools/pkg/netbenchc"
-	"net-tools/pkg/netbenchs"
+	"net-tools/pkg/benchtestc"
+	"net-tools/pkg/benchtests"
 	"net-tools/pkg/portscan"
 	"net-tools/pkg/speedtestc"
 	"net-tools/pkg/speedtests"
@@ -57,19 +57,19 @@ var speedTestcCmd = &cobra.Command{
 	},
 }
 
-var netBenchsCmd = &cobra.Command{
-	Use:   "nbs",
-	Short: "Network benchmark server",
+var benchTestsCmd = &cobra.Command{
+	Use:   "bts",
+	Short: "Benchmark test server",
 	Run: func(cmd *cobra.Command, args []string) {
-		netbenchs.Run(rootCtx)
+		benchtests.Run(rootCtx)
 	},
 }
 
-var netBenchcCmd = &cobra.Command{
-	Use:   "nbc",
-	Short: "Network benchmark client",
+var benchTestcCmd = &cobra.Command{
+	Use:   "btc",
+	Short: "Benchmark test client",
 	Run: func(cmd *cobra.Command, args []string) {
-		netbenchc.Run(rootCtx)
+		benchtestc.Run(rootCtx)
 	},
 }
 
@@ -102,17 +102,18 @@ func init() {
 	speedTestcCmd.Flags().StringP("test-mode", "m", "download", "test mode (download|upload)")
 	speedTestcCmd.Flags().IntP("max-thread", "T", 1, "test max thread")
 
-	netBenchsCmd.Flags().StringP("server-bind", "s", ":8080", "server bind addr")
-	netBenchsCmd.Flags().StringP("protocol", "P", "tcp", "test protocol (tcp|udp|http|https|ws)")
-	netBenchsCmd.Flags().Uint32P("timeout", "t", 1000*5, "client timeout (ms)")
+	benchTestsCmd.Flags().StringP("server-bind", "s", ":8080", "server bind addr")
+	benchTestsCmd.Flags().StringP("protocol", "P", "tcp", "test protocol (tcp|udp|http|https|ws)")
+	benchTestsCmd.Flags().IntP("timeout", "t", 1000*5, "client timeout (ms)")
 
-	netBenchcCmd.Flags().StringP("server-addr", "s", "localhost:8080", "server addr")
-	netBenchcCmd.Flags().StringP("protocol", "P", "tcp", "test protocol (tcp|udp|http|https|ws)")
-	netBenchcCmd.Flags().Uint32P("timeout", "T", 1000*5, "server timeout (ms)")
-	netBenchcCmd.Flags().Uint32P("interval", "i", 1000, "test interval (ms)")
-	netBenchcCmd.Flags().Uint32P("max-thread", "t", 1, "test max thread")
+	benchTestcCmd.Flags().StringP("server-addr", "s", "localhost:8080", "server addr")
+	benchTestcCmd.Flags().StringP("protocol", "P", "tcp", "test protocol (tcp|udp|http|https|ws)")
+	benchTestcCmd.Flags().IntP("timeout", "t", 1000*5, "server timeout (ms)")
+	benchTestcCmd.Flags().IntP("interval", "i", 1000, "send message interval (ms)")
+	benchTestcCmd.Flags().IntP("max-thread", "T", 1, "test max thread")
+	benchTestcCmd.Flags().IntP("max-messages", "m", 0, "max send messages")
 
-	rootCmd.AddCommand(portScanCmd, tcpPingCmd, speedTestsCmd, speedTestcCmd, netBenchsCmd, netBenchcCmd)
+	rootCmd.AddCommand(portScanCmd, tcpPingCmd, speedTestsCmd, speedTestcCmd, benchTestsCmd, benchTestcCmd)
 }
 
 func Execute(ctx context.Context) {

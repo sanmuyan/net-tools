@@ -1,11 +1,11 @@
-package netbenchc
+package benchtestc
 
 import (
 	"context"
 	"github.com/sanmuyan/xpkg/xutil"
 	"github.com/sirupsen/logrus"
 	"net"
-	"net-tools/pkg/netbench"
+	"net-tools/pkg/benchtest"
 	"sync"
 	"time"
 )
@@ -22,27 +22,27 @@ func NewUDPClient(client *Client) *UDPClient {
 }
 
 func (c *UDPClient) sendHandler(ctx context.Context) {
-	for {
+	for i := 0; i < c.MaxMessages || c.MaxMessages <= 0; i++ {
 		select {
 		case <-ctx.Done():
 			return
 		default:
 			startTime := time.Now().UnixMilli()
-			sendMsg := netbench.GenerateMessage(netbench.GenerateRequestID())
+			sendMsg := benchtest.GenerateMessage(benchtest.GenerateRequestID())
 			logrus.Debugf("%s message: %s to %s", c.Protocol, sendMsg.GetRequestID(), c.conn.RemoteAddr())
-			_, err := c.conn.Write(xutil.RemoveError(netbench.Marshal(sendMsg)))
+			_, err := c.conn.Write(xutil.RemoveError(benchtest.Marshal(sendMsg)))
 			if err != nil {
 				logrus.Warnf("failed to write: %s %s", err, c.conn.RemoteAddr())
 				return
 			}
 			c.setConnDeadline(c.conn)
-			data := make([]byte, netbench.ReadBufferSize)
+			data := make([]byte, benchtest.ReadBufferSize)
 			n, err := c.conn.Read(data)
 			if err != nil {
 				logrus.Warnf("failed to read: %s %s", err, c.conn.RemoteAddr())
 				return
 			}
-			receiveMsg, err := netbench.Unmarshal(data[:n])
+			receiveMsg, err := benchtest.Unmarshal(data[:n])
 			if err != nil {
 				logrus.Warnf("failed to unmarshal: %s %s", err, c.conn.RemoteAddr())
 				return

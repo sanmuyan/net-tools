@@ -1,4 +1,4 @@
-package netbenchs
+package benchtests
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"github.com/sanmuyan/xpkg/xutil"
 	"github.com/sirupsen/logrus"
 	"io"
-	"net-tools/pkg/netbench"
+	"net-tools/pkg/benchtest"
 	"net/http"
 	"time"
 )
@@ -30,15 +30,15 @@ func (s *HTTPServer) wsHandler(ctx context.Context, conn *websocket.Conn) {
 				logrus.Debugf("failed to read: %v %s", err, conn.RemoteAddr())
 				return
 			}
-			receiveMsg, err := netbench.Unmarshal(data)
+			receiveMsg, err := benchtest.Unmarshal(data)
 			if err != nil {
 				logrus.Warnf("failed to unmarshal: %s %s", err, conn.RemoteAddr())
 				return
 			}
 			logrus.Infof("%s message: %s from %s", s.Protocol, receiveMsg.GetRequestID(), conn.RemoteAddr())
-			sendMsg := netbench.GenerateMessage(receiveMsg.GetRequestID())
+			sendMsg := benchtest.GenerateMessage(receiveMsg.GetRequestID())
 			logrus.Infof("%s message: %s to %s", s.Protocol, sendMsg.GetRequestID(), conn.RemoteAddr())
-			err = conn.WriteMessage(messageType, xutil.RemoveError(netbench.Marshal(sendMsg)))
+			err = conn.WriteMessage(messageType, xutil.RemoveError(benchtest.Marshal(sendMsg)))
 			if err != nil {
 				logrus.Warnf("failed to write: %s %s", err, conn.RemoteAddr())
 				return
@@ -56,15 +56,15 @@ func (s *HTTPServer) httpHandler(w http.ResponseWriter, r *http.Request) {
 		logrus.Debugf("failed to read: %s %s", err, r.RemoteAddr)
 		return
 	}
-	receiveMsg, err := netbench.Unmarshal(data)
+	receiveMsg, err := benchtest.Unmarshal(data)
 	if err != nil {
 		logrus.Warnf("failed to unmarshal: %s %s", err, r.RemoteAddr)
 		return
 	}
 	logrus.Infof("%s message: %s from %s", s.Protocol, receiveMsg.GetRequestID(), r.RemoteAddr)
-	sendMsg := netbench.GenerateMessage(receiveMsg.GetRequestID())
+	sendMsg := benchtest.GenerateMessage(receiveMsg.GetRequestID())
 	logrus.Debugf("%s message: %s to %s", s.Protocol, sendMsg.GetRequestID(), r.RemoteAddr)
-	_, err = w.Write(xutil.RemoveError(netbench.Marshal(sendMsg)))
+	_, err = w.Write(xutil.RemoveError(benchtest.Marshal(sendMsg)))
 	if err != nil {
 		logrus.Warnf("failed to write: %s %s", err, r.RemoteAddr)
 	}

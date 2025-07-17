@@ -1,5 +1,5 @@
 build/pkg
-build/net-tools
+build/nts
 .id*
 .vs*
 go.work*

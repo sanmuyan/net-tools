@@ -3,7 +3,7 @@
 ## 端口扫描
 
 ```shell
-net-tools scan 192.168.1.0/24 22
+nts scan 192.168.1.0/24 22
 Opened: 192.168.1.1:22
 Opened: 192.168.1.3:22
 Opened: 192.168.1.4:22
@@ -17,7 +17,7 @@ Opened: 192.168.1.15:22
 ## TCP 测试
 
 ```shell
-net-tools ping www.baidu.com 443
+nts ping www.baidu.com 443
 Reply from www.baidu.com:443 time=13ms
 Reply from www.baidu.com:443 time=9ms
 Reply from www.baidu.com:443 time=20ms
@@ -41,19 +41,19 @@ Success=4, Error=0, Max=20ms, Min=9ms, Avg=13ms
 ### 服务端
 
 ```shell
-net-tools sts
+nts sts
 time="2025-03-06 22:11:11" level=info msg="tcp server listening on 0.0.0.0:8080"
-time="2025-03-06 22:11:11" level=info msg="udp server listening on 0.0.0.0:8080"
+time="2025-03-06 22:11:11" level=info msg="quic server listening on 0.0.0.0:8080"
 time="2025-03-06 22:11:46" level=info msg="tcp download from 127.0.0.1:59367"
 time="2025-03-06 22:11:56" level=info msg="download finished in 127.0.0.1:59367"
 ```
 
 - `-s` 服务器监控地址，默认值`0.0.0.0:8080`
 
-### 服务端
+### 客户端
 
 ```shell
-net-tools stc 192.168.1.1:8080
+nts stc -s 192.168.1.1:8080
 time="2025-03-06 22:11:46" level=info msg="tcp download testing to localhost:8080"
 time="2025-03-06 22:11:47" level=info msg="real-time speed: 339.38Mbps/s"
 time="2025-03-06 22:11:48" level=info msg="real-time speed: 349.91Mbps/s"
@@ -68,7 +68,49 @@ time="2025-03-06 22:11:56" level=info msg="real-time speed: 300.38Mbps/s"
 time="2025-03-06 22:11:56" level=info msg="finished avg speed: 337.53Mbps/s"
 ```
 
+- `-s` 服务器地址，默认值`localhost:8080`
 - `-m` 测试模式，默认值`download`，可选项`download|upload`
 - `-t` 测试时间（秒），默认值`10`
-- `-P` 测试的协议，默认值`tcp`，可选项`tcp`
+- `-P` 测试的协议，默认值`tcp`，可选项`tcp|quic`
 - `-T` 测试并发连接，默认值`1`
+
+## 性能测试
+
+### 服务端
+
+```shell
+nts bts 
+time="2025-07-17 23:44:26" level=info msg="tcp server listening on :8080"
+time="2025-07-17 23:44:43" level=info msg="tcp message: bd70a3c0-7e4e-456d-9eba-a6ccf9300fcf from 192.168.1.2:59735"
+time="2025-07-17 23:44:44" level=info msg="tcp message: d7a2029f-6440-43fb-806a-e05b4c8198d8 from 192.168.1.2:59735"
+time="2025-07-17 23:44:45" level=info msg="tcp message: 95625b03-0e1b-48f0-baf9-9ee0368b5b42 from 192.168.1.2:59735"
+time="2025-07-17 23:44:46" level=info msg="tcp message: 126f2d44-9c88-4646-902a-f6034260bf12 from 192.168.1.2:59735"
+time="2025-07-17 23:44:47" level=info msg="tcp message: 0f1d6de2-ed3c-4c98-b345-4e5fa8c0377a from 192.168.1.2:59735"
+time="2025-07-17 23:44:48" level=info msg="tcp message: 0333e336-f006-4543-b41c-930a23794f78 from 192.168.1.2:59735"
+time="2025-07-17 23:44:49" level=info msg="tcp message: 9e514627-a746-493f-b4b5-d70364730475 from 192.168.1.2:59735"
+```
+
+- `-s` 服务器监控地址，默认值`0.0.0.0:8080`
+- `-P` 测试协议，默认值`tcp`，可选值`tcp|udp|http|https|ws`
+- `-t` 客户端超时，默认值`5000ms`
+
+### 服务端
+
+```shell
+nts btc -s 192.168.1.1:8080
+time="2025-07-17 23:44:43" level=info msg="tcp message: bd70a3c0-7e4e-456d-9eba-a6ccf9300fcffrom 192.168.1.1:8080 10ms"
+time="2025-07-17 23:44:45" level=info msg="tcp message: d7a2029f-6440-43fb-806a-e05b4c8198d8from 192.168.1.1:8080 10ms"
+time="2025-07-17 23:44:46" level=info msg="tcp message: 95625b03-0e1b-48f0-baf9-9ee0368b5b42from 192.168.1.1:8080 10ms"
+time="2025-07-17 23:44:47" level=info msg="tcp message: 126f2d44-9c88-4646-902a-f6034260bf12from 192.168.1.1:8080 9ms"
+time="2025-07-17 23:44:48" level=info msg="tcp message: 0f1d6de2-ed3c-4c98-b345-4e5fa8c0377afrom 192.168.1.1:8080 9ms"
+time="2025-07-17 23:44:49" level=info msg="tcp message: 0333e336-f006-4543-b41c-930a23794f78from 192.168.1.1:8080 10ms"
+time="2025-07-17 23:44:50" level=info msg="tcp message: 9e514627-a746-493f-b4b5-d70364730475from 192.168.1.1:8080 10ms"
+
+```
+
+- `-s` 服务器地址，默认值`localhost:8080`
+- `-P` 测试协议，默认值`tcp`，可选值`tcp|udp|http|https|ws`
+- `-t` 服务端超时，默认值`5000ms`
+- `-i` 发送消息间隔，默认值`1000ms`
+- `-T` 测试并发连接，默认值`1`
+- `-m` 最大发送消息数，默认值`0`，`0`表示不限制

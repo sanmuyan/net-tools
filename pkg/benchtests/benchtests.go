@@ -1,4 +1,4 @@
-package netbenchs
+package benchtests
 
 import (
 	"context"
@@ -19,7 +19,7 @@ type Server struct {
 	ctx        context.Context
 }
 
-func NewServer(ctx context.Context, serverBind string, protocol string, timeout uint32) *Server {
+func NewServer(ctx context.Context, serverBind string, protocol string, timeout int) *Server {
 	return &Server{
 		ServerBind: serverBind,
 		Protocol:   protocol,
@@ -51,6 +51,6 @@ func RunServer(server *Server) {
 func Run(ctx context.Context) {
 	serverBind := viper.GetString("server-bind")
 	protocol := viper.GetString("protocol")
-	timeout := viper.GetUint32("timeout")
+	timeout := viper.GetInt("timeout")
 	RunServer(NewServer(ctx, serverBind, protocol, timeout))
 }

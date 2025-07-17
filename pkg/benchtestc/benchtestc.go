@@ -1,4 +1,4 @@
-package netbenchc
+package benchtestc
 
 import (
 	"context"
@@ -15,22 +15,24 @@ type ClientConn interface {
 }
 
 type Client struct {
-	Server    string
-	Protocol  string
-	Timeout   time.Duration
-	Interval  time.Duration
-	MaxThread uint32
-	ctx       context.Context
+	Server      string
+	Protocol    string
+	Timeout     time.Duration
+	Interval    time.Duration
+	MaxThread   int
+	MaxMessages int
+	ctx         context.Context
 }
 
-func NewClient(ctx context.Context, server string, protocol string, timeout uint32, interval uint32, maxThread uint32) *Client {
+func NewClient(ctx context.Context, server string, protocol string, timeout int, interval int, maxThread int, maxMessages int) *Client {
 	return &Client{
-		Server:    server,
-		Protocol:  protocol,
-		Timeout:   time.Millisecond * time.Duration(timeout),
-		Interval:  time.Millisecond * time.Duration(interval),
-		MaxThread: maxThread,
-		ctx:       ctx,
+		Server:      server,
+		Protocol:    protocol,
+		Timeout:     time.Millisecond * time.Duration(timeout),
+		Interval:    time.Millisecond * time.Duration(interval),
+		MaxThread:   maxThread,
+		MaxMessages: maxMessages,
+		ctx:         ctx,
 	}
 }
 
@@ -54,7 +56,7 @@ func RunClient(client *Client) {
 		return
 	}
 	wg := new(sync.WaitGroup)
-	for i := uint32(0); i < client.MaxThread; i++ {
+	for i := 0; i < client.MaxThread; i++ {
 		wg.Add(1)
 		go clientConn.run(wg)
 	}
@@ -64,8 +66,9 @@ func RunClient(client *Client) {
 func Run(ctx context.Context) {
 	protocol := viper.GetString("protocol")
 	server := viper.GetString("server-addr")
-	timeout := viper.GetUint32("timeout")
-	interval := viper.GetUint32("interval")
-	maxThread := viper.GetUint32("max-thread")
-	RunClient(NewClient(ctx, server, protocol, timeout, interval, maxThread))
+	timeout := viper.GetInt("timeout")
+	interval := viper.GetInt("interval")
+	maxThread := viper.GetInt("max-thread")
+	maxMessages := viper.GetInt("max-messages")
+	RunClient(NewClient(ctx, server, protocol, timeout, interval, maxThread, maxMessages))
 }

@@ -1,4 +1,4 @@
-package netbenchc
+package benchtestc
 
 import (
 	"bytes"
@@ -7,7 +7,7 @@ import (
 	"github.com/sanmuyan/xpkg/xutil"
 	"github.com/sirupsen/logrus"
 	"io"
-	"net-tools/pkg/netbench"
+	"net-tools/pkg/benchtest"
 	"net/http"
 	"sync"
 	"time"
@@ -25,9 +25,9 @@ func NewHTTPClient(client *Client) *HTTPClient {
 
 func (c *HTTPClient) sendHandler() {
 	startTime := time.Now().UnixMilli()
-	sendMsg := netbench.GenerateMessage(netbench.GenerateRequestID())
+	sendMsg := benchtest.GenerateMessage(benchtest.GenerateRequestID())
 	logrus.Debugf("http message: %s to %s", sendMsg.GetRequestID(), c.Server)
-	helloReader := bytes.NewBuffer(xutil.RemoveError(netbench.Marshal(sendMsg)))
+	helloReader := bytes.NewBuffer(xutil.RemoveError(benchtest.Marshal(sendMsg)))
 	client := &http.Client{
 		Timeout: c.Timeout,
 	}
@@ -54,7 +54,7 @@ func (c *HTTPClient) sendHandler() {
 		logrus.Warnf("failed to read: %s %s", err, c.Server)
 		return
 	}
-	receiveMsg, err := netbench.Unmarshal(data)
+	receiveMsg, err := benchtest.Unmarshal(data)
 	if err != nil {
 		logrus.Warnf("failed to unmarshal: %s %s", err, c.Server)
 		return
@@ -65,7 +65,7 @@ func (c *HTTPClient) sendHandler() {
 
 func (c *HTTPClient) run(wg *sync.WaitGroup) {
 	defer wg.Done()
-	for {
+	for i := 0; i < c.MaxMessages || c.MaxMessages <= 0; i++ {
 		select {
 		case <-c.ctx.Done():
 			return

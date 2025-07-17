@@ -1,11 +1,11 @@
-package netbenchc
+package benchtestc
 
 import (
 	"bufio"
 	"context"
 	"github.com/sirupsen/logrus"
 	"net"
-	"net-tools/pkg/netbench"
+	"net-tools/pkg/benchtest"
 	"sync"
 	"time"
 )
@@ -21,23 +21,23 @@ func NewTCPClient(client *Client) *TCPClient {
 }
 
 func (c *TCPClient) sendHandler(ctx context.Context, conn net.Conn) {
-	reader := bufio.NewReaderSize(conn, netbench.ReadBufferSize)
-	for {
+	reader := bufio.NewReaderSize(conn, benchtest.ReadBufferSize)
+	for i := 0; i < c.MaxMessages || c.MaxMessages <= 0; i++ {
 		select {
 		case <-ctx.Done():
 			_ = conn.Close()
 			return
 		default:
 			startTime := time.Now().UnixMilli()
-			sendMsg := netbench.GenerateMessage(netbench.GenerateRequestID())
+			sendMsg := benchtest.GenerateMessage(benchtest.GenerateRequestID())
 			logrus.Debugf("%s message: %s to %s", c.Protocol, sendMsg.GetRequestID(), conn.RemoteAddr())
-			err := netbench.WriteTCP(sendMsg, conn)
+			err := benchtest.WriteTCP(sendMsg, conn)
 			if err != nil {
 				logrus.Warnf("failed to write: %v %s", err, conn.RemoteAddr())
 				return
 			}
 			c.setConnDeadline(conn)
-			receiveMsg, err := netbench.ReadTCP(reader)
+			receiveMsg, err := benchtest.ReadTCP(reader)
 			if err != nil {
 				logrus.Warnf("failed to read: %v %s", err, conn.RemoteAddr())
 				return
