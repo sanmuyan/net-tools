@@ -66,10 +66,11 @@ func Run(ctx context.Context) {
 	switch protocol {
 	case "tcp":
 		c = NewTCPClient(client)
+	case "quic":
+		c = NewQUICClient(client)
 	default:
 		logrus.Fatalf("unknown protocol: %s", protocol)
 	}
-	c = NewTCPClient(client)
 	go func() {
 		var latestSize int64
 		for i := 0; i < client.TestTime; i++ {

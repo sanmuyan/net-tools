@@ -2,8 +2,11 @@ package speedtest
 
 import (
 	"bufio"
+	"encoding/binary"
+	"github.com/quic-go/quic-go"
 	"github.com/sanmuyan/xpkg/xnet"
 	"google.golang.org/protobuf/proto"
+	"io"
 	"net"
 )
 
@@ -17,6 +20,7 @@ const (
 const (
 	ReadBufferSize = 1024 * 1024
 	TCPDataSize    = 1024 * 128
+	QUICDataSize   = 1024 * 128
 )
 
 func Unmarshal(data []byte) (*StMessage, error) {
@@ -49,10 +53,42 @@ func ReadTCP(reader *bufio.Reader) (*StMessage, error) {
 	return Unmarshal(be)
 }
 
+func ReadQUIC(stream *quic.Stream) (*StMessage, error) {
+	var msgLen uint32
+	err := binary.Read(stream, binary.BigEndian, &msgLen)
+	if err != nil {
+		return nil, err
+	}
+	data := make([]byte, msgLen)
+	_, err = io.ReadFull(stream, data)
+	if err != nil {
+		return nil, err
+	}
+	return Unmarshal(data)
+}
+
+func WriteQUIC(msg *StMessage, stream *quic.Stream) error {
+	bp, err := Marshal(msg)
+	if err != nil {
+		return err
+	}
+	_ = binary.Write(stream, binary.BigEndian, uint32(len(bp)))
+	_, err = stream.Write(bp)
+	return err
+}
+
 var PreMessageTCP = make([]byte, TCPDataSize)
 
 func init() {
 	for i := range PreMessageTCP {
 		PreMessageTCP[i] = 'x'
+	}
+}
+
+var PreMessageQUIC = make([]byte, QUICDataSize)
+
+func init() {
+	for i := range PreMessageQUIC {
+		PreMessageQUIC[i] = 'x'
 	}
 }

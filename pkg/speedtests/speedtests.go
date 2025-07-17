@@ -29,6 +29,7 @@ func (s *Server) setConnDeadline(conn net.Conn, testTime int) {
 }
 
 func RunServer(server *Server) {
+	go NewQUICServer(server).run()
 	NewTCPServer(server).run()
 }
 
