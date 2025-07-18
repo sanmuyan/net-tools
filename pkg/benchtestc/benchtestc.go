@@ -2,6 +2,7 @@ package benchtestc
 
 import (
 	"context"
+	"github.com/sanmuyan/xpkg/xtime"
 	"net"
 	"net-tools/pkg/loger"
 	"sync"
@@ -93,7 +94,8 @@ func RunClient(client *Client) {
 	if client.successCount > 0 {
 		avg = client.successTimeCount / client.successCount
 	}
-	loger.S.Infof("Success=%d, Error=%d, Timing=%ds Max=%dms, Min=%dms, Avg=%dms", client.successCount, client.errCount, timing, client.successMaxTime, client.successMinTime, avg)
+	loger.S.Infof("Success=%d, Error=%d, Timing=%ds Max=%s, Min=%s, Avg=%s",
+		client.successCount, client.errCount, timing, timeToStrUnit(client.successMaxTime), timeToStrUnit(client.successMinTime), timeToStrUnit(avg))
 }
 
 func Run(ctx context.Context) {
@@ -104,4 +106,8 @@ func Run(ctx context.Context) {
 	maxThread := viper.GetInt("max-thread")
 	maxMessages := viper.GetInt("max-messages")
 	RunClient(NewClient(ctx, server, protocol, timeout, interval, maxThread, maxMessages))
+}
+
+func timeToStrUnit(tm int64) string {
+	return xtime.TimeToStrUnitTrim(time.Duration(tm)*time.Millisecond, 3)
 }

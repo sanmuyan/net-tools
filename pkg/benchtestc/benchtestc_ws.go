@@ -41,7 +41,7 @@ func (c *WSClient) sendMessage(conn *websocket.Conn) (*int64, error) {
 		return nil, err
 	}
 	timing := time.Now().UnixMilli() - startTime
-	logrus.Infof("%s message: %s from %s %dms", c.Protocol, receiveMsg.GetRequestID(), conn.RemoteAddr(), timing)
+	logrus.Infof("%s message: %s from %s %s", c.Protocol, receiveMsg.GetRequestID(), conn.RemoteAddr(), timeToStrUnit(timing))
 	return &timing, err
 }
 

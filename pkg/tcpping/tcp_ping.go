@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/sanmuyan/xpkg/xnet"
+	"github.com/sanmuyan/xpkg/xtime"
 	"github.com/spf13/viper"
 	"net"
 	"net-tools/pkg/loger"
@@ -28,11 +29,10 @@ func NewTCPPing(host string, port int, timeout int64, protocol string, withTLS b
 	if timeout < 5 {
 		timeout = 5
 	}
-	if timeout > 100000 {
-		timeout = 100000
+	if timeout > 1000*60 {
+		timeout = 1000 * 60
 	}
-	// timeout * 1000 程序内部使用微妙
-	return &TCPPing{Host: host, Port: port, Timeout: timeout * 1000, Protocol: protocol, WithTLS: withTLS}
+	return &TCPPing{Host: host, Port: port, Timeout: timeout, Protocol: protocol, WithTLS: withTLS}
 }
 
 var (
@@ -67,8 +67,8 @@ func (t *TCPPing) httpsHello(conn net.Conn) error {
 	return nil
 }
 
-func (t *TCPPing) PING(errorMessage chan error, pingTime chan float32) {
-	starTime := time.Now().UnixMicro()
+func (t *TCPPing) PING(errorMessage chan error, pingTime chan int64) {
+	starTime := time.Now().UnixMilli()
 	var err error
 	var conn net.Conn
 	if t.WithTLS {
@@ -80,7 +80,7 @@ func (t *TCPPing) PING(errorMessage chan error, pingTime chan float32) {
 		}
 		conn = tlsConn.NetConn()
 	} else {
-		conn, err = net.DialTimeout("tcp", fmt.Sprintf("%s:%d", t.Host, t.Port), time.Duration(t.Timeout)*time.Microsecond)
+		conn, err = net.DialTimeout("tcp", fmt.Sprintf("%s:%d", t.Host, t.Port), time.Duration(t.Timeout)*time.Millisecond)
 		if err != nil {
 			errorMessage <- err
 			return
@@ -89,12 +89,12 @@ func (t *TCPPing) PING(errorMessage chan error, pingTime chan float32) {
 	defer func() {
 		_ = conn.Close()
 	}()
-	pt := time.Now().UnixMicro() - starTime
+	pt := time.Now().UnixMilli() - starTime
 	if pt < t.Timeout {
 		// 剩余超时时间应该减去建立连接的耗时
 		_t := t.Timeout - pt
-		_ = conn.SetReadDeadline(time.Now().Add(time.Duration(_t) * time.Microsecond))
-		_ = conn.SetWriteDeadline(time.Now().Add(time.Duration(_t) * time.Microsecond))
+		_ = conn.SetReadDeadline(time.Now().Add(time.Duration(_t) * time.Millisecond))
+		_ = conn.SetWriteDeadline(time.Now().Add(time.Duration(_t) * time.Millisecond))
 	} else {
 		errorMessage <- timeoutMsg
 		return
@@ -108,12 +108,12 @@ func (t *TCPPing) PING(errorMessage chan error, pingTime chan float32) {
 		errorMessage <- err
 		return
 	}
-	pt = time.Now().Add(time.Microsecond).UnixMicro() - starTime
+	pt = time.Now().Add(time.Millisecond).UnixMilli() - starTime
 	if pt > t.Timeout {
 		errorMessage <- timeoutMsg
 		return
 	}
-	pingTime <- float32(pt)
+	pingTime <- pt
 }
 
 func Run(ctx context.Context, args []string) {
@@ -143,26 +143,25 @@ func Run(ctx context.Context, args []string) {
 	portInt, _ := strconv.Atoi(port)
 	p := NewTCPPing(host, portInt, int64(timeout), protocol, withTLS)
 	errorMessage := make(chan error)
-	pingTime := make(chan float32)
+	pingTime := make(chan int64)
 	go func() {
 		for i := 0; i < count; i++ {
 			p.PING(errorMessage, pingTime)
 			time.Sleep(time.Duration(interval) * time.Millisecond)
 		}
 	}()
-	var totalTime float32
-	var successTotal int
-	var errorTotal int
-	var maxTime float32
-	var minTime float32
+	var totalTime int64
+	var successTotal int64
+	var errorTotal int64
+	var maxTime int64
+	var minTime int64
 	for i := 0; i < count; i++ {
 		select {
 		case m := <-errorMessage:
 			loger.S.Infof("Reply from %s:%d error=%s", host, portInt, m)
 			errorTotal++
 		case t := <-pingTime:
-			t = t / 1000
-			loger.S.Infof("Reply from %s:%d time=%.3fms", host, portInt, t)
+			loger.S.Infof("Reply from %s:%d time=%s", host, portInt, timeToStrUnit(t))
 			totalTime += t
 			successTotal++
 			if t > maxTime {
@@ -175,9 +174,14 @@ func Run(ctx context.Context, args []string) {
 
 		}
 	}
-	var avg float32
+	var avg int64
 	if successTotal > 0 {
-		avg = totalTime / float32(successTotal)
+		avg = totalTime / successTotal
 	}
-	loger.S.Infof("Success=%d, Error=%d, Max=%.3fms, Min=%.3fms, Avg=%.3fms", successTotal, errorTotal, maxTime, minTime, avg)
+	loger.S.Infof("Success=%d, Error=%d, Max=%s, Min=%s, Avg=%s",
+		successTotal, errorTotal, timeToStrUnit(maxTime), timeToStrUnit(minTime), timeToStrUnit(avg))
+}
+
+func timeToStrUnit(tm int64) string {
+	return xtime.TimeToStrUnitTrim(time.Duration(tm)*time.Millisecond, 3)
 }

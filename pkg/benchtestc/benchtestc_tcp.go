@@ -36,7 +36,7 @@ func (c *TCPClient) sendMessage(reader *bufio.Reader, conn net.Conn) (*int64, er
 		return nil, err
 	}
 	timing := time.Now().UnixMilli() - startTime
-	logrus.Infof("%s message: %s from %s %dms", c.Protocol, receiveMsg.GetRequestID(), conn.RemoteAddr(), timing)
+	logrus.Infof("%s message: %s from %s %s", c.Protocol, receiveMsg.GetRequestID(), conn.RemoteAddr(), timeToStrUnit(timing))
 	return &timing, nil
 }
 

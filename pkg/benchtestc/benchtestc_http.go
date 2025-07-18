@@ -60,7 +60,7 @@ func (c *HTTPClient) sendMessage() (*int64, error) {
 		return nil, err
 	}
 	timing := time.Now().UnixMilli() - startTime
-	logrus.Infof("%s message: %s from %s %dms", c.Protocol, receiveMsg.GetRequestID(), c.Server, timing)
+	logrus.Infof("%s message: %s from %s %s", c.Protocol, receiveMsg.GetRequestID(), c.Server, timeToStrUnit(timing))
 	return &timing, nil
 }
 
