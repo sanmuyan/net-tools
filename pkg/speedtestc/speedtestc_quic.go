@@ -48,7 +48,6 @@ func (c *QUICClient) handleUpload(ctx context.Context, conn *quic.Conn, stream *
 	for {
 		select {
 		case <-ctx.Done():
-			_ = stream.Close()
 			return
 		default:
 			c.setConnDeadline(stream)

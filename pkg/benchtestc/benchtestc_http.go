@@ -23,7 +23,7 @@ func NewHTTPClient(client *Client) *HTTPClient {
 	}
 }
 
-func (c *HTTPClient) sendHandler() {
+func (c *HTTPClient) sendMessage() (*int64, error) {
 	startTime := time.Now().UnixMilli()
 	sendMsg := benchtest.GenerateMessage(benchtest.GenerateRequestID())
 	logrus.Debugf("http message: %s to %s", sendMsg.GetRequestID(), c.Server)
@@ -44,7 +44,7 @@ func (c *HTTPClient) sendHandler() {
 	resp, err := client.Do(req)
 	if err != nil {
 		logrus.Warnf("%s request error: %v", c.Protocol, err)
-		return
+		return nil, err
 	}
 	defer func() {
 		_ = resp.Body.Close()
@@ -52,26 +52,36 @@ func (c *HTTPClient) sendHandler() {
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
 		logrus.Warnf("failed to read: %s %s", err, c.Server)
-		return
+		return nil, err
 	}
 	receiveMsg, err := benchtest.Unmarshal(data)
 	if err != nil {
 		logrus.Warnf("failed to unmarshal: %s %s", err, c.Server)
-		return
+		return nil, err
 	}
-	endTime := time.Now().UnixMilli()
-	logrus.Infof("%s message: %s from %s %dms", c.Protocol, receiveMsg.GetRequestID(), c.Server, endTime-startTime)
+	timing := time.Now().UnixMilli() - startTime
+	logrus.Infof("%s message: %s from %s %dms", c.Protocol, receiveMsg.GetRequestID(), c.Server, timing)
+	return &timing, nil
 }
 
-func (c *HTTPClient) run(wg *sync.WaitGroup) {
-	defer wg.Done()
+func (c *HTTPClient) sendHandler() {
 	for i := 0; i < c.MaxMessages || c.MaxMessages <= 0; i++ {
 		select {
 		case <-c.ctx.Done():
 			return
 		default:
-			c.sendHandler()
+			timing, err := c.sendMessage()
+			if err != nil {
+				c.addErrorCount()
+				return
+			}
+			c.addSuccessCount(*timing)
 		}
 		time.Sleep(c.Interval)
 	}
+}
+
+func (c *HTTPClient) run(wg *sync.WaitGroup) {
+	defer wg.Done()
+	c.sendHandler()
 }

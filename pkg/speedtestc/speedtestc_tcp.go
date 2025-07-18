@@ -55,7 +55,6 @@ func (c *TCPClient) handleUpload(ctx context.Context, conn net.Conn) {
 	for {
 		select {
 		case <-ctx.Done():
-			_ = conn.Close()
 			return
 		default:
 			c.setConnDeadline(conn)
@@ -102,6 +101,5 @@ func (c *TCPClient) createConn() net.Conn {
 	if err != nil {
 		logrus.Fatalf("failed to dial server: %v", err)
 	}
-	c.setConnDeadline(conn)
 	return conn
 }

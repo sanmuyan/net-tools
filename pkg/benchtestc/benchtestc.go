@@ -3,7 +3,9 @@ package benchtestc
 import (
 	"context"
 	"net"
+	"net-tools/pkg/loger"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -15,13 +17,19 @@ type ClientConn interface {
 }
 
 type Client struct {
-	Server      string
-	Protocol    string
-	Timeout     time.Duration
-	Interval    time.Duration
-	MaxThread   int
-	MaxMessages int
-	ctx         context.Context
+	Server           string
+	Protocol         string
+	Timeout          time.Duration
+	Interval         time.Duration
+	MaxThread        int
+	MaxMessages      int
+	ctx              context.Context
+	errCount         int64
+	successCount     int64
+	successTimeCount int64
+	successMinTime   int64
+	successMaxTime   int64
+	mx               sync.Mutex
 }
 
 func NewClient(ctx context.Context, server string, protocol string, timeout int, interval int, maxThread int, maxMessages int) *Client {
@@ -39,6 +47,24 @@ func NewClient(ctx context.Context, server string, protocol string, timeout int,
 func (c *Client) setConnDeadline(conn net.Conn) {
 	_ = conn.SetReadDeadline(time.Now().Add(c.Timeout))
 }
+func (c *Client) addSuccessCount(t int64) {
+	c.mx.Lock()
+	defer c.mx.Unlock()
+	c.successCount++
+	c.successTimeCount += t
+	if t > c.successMaxTime || c.successMaxTime == 0 {
+		c.successMaxTime = t
+		return
+	}
+	if t < c.successMinTime || c.successMinTime == 0 {
+		c.successMinTime = t
+		return
+	}
+}
+
+func (c *Client) addErrorCount() {
+	atomic.AddInt64(&c.errCount, 1)
+}
 
 func RunClient(client *Client) {
 	var clientConn ClientConn
@@ -55,12 +81,19 @@ func RunClient(client *Client) {
 		logrus.Fatalf("unknown protocol: %s", client.Protocol)
 		return
 	}
+	startTime := time.Now().Unix()
 	wg := new(sync.WaitGroup)
 	for i := 0; i < client.MaxThread; i++ {
 		wg.Add(1)
 		go clientConn.run(wg)
 	}
 	wg.Wait()
+	timing := time.Now().Unix() - startTime
+	var avg int64
+	if client.successCount > 0 {
+		avg = client.successTimeCount / client.successCount
+	}
+	loger.S.Infof("Success=%d, Error=%d, Timing=%ds Max=%dms, Min=%dms, Avg=%dms", client.successCount, client.errCount, timing, client.successMaxTime, client.successMinTime, avg)
 }
 
 func Run(ctx context.Context) {

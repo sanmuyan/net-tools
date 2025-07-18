@@ -20,6 +20,26 @@ func NewTCPClient(client *Client) *TCPClient {
 	}
 }
 
+func (c *TCPClient) sendMessage(reader *bufio.Reader, conn net.Conn) (*int64, error) {
+	startTime := time.Now().UnixMilli()
+	sendMsg := benchtest.GenerateMessage(benchtest.GenerateRequestID())
+	logrus.Debugf("%s message: %s to %s", c.Protocol, sendMsg.GetRequestID(), conn.RemoteAddr())
+	err := benchtest.WriteTCP(sendMsg, conn)
+	if err != nil {
+		logrus.Warnf("failed to write: %v %s", err, conn.RemoteAddr())
+		return nil, err
+	}
+	c.setConnDeadline(conn)
+	receiveMsg, err := benchtest.ReadTCP(reader)
+	if err != nil {
+		logrus.Warnf("failed to read: %v %s", err, conn.RemoteAddr())
+		return nil, err
+	}
+	timing := time.Now().UnixMilli() - startTime
+	logrus.Infof("%s message: %s from %s %dms", c.Protocol, receiveMsg.GetRequestID(), conn.RemoteAddr(), timing)
+	return &timing, nil
+}
+
 func (c *TCPClient) sendHandler(ctx context.Context, conn net.Conn) {
 	reader := bufio.NewReaderSize(conn, benchtest.ReadBufferSize)
 	for i := 0; i < c.MaxMessages || c.MaxMessages <= 0; i++ {
@@ -28,22 +48,12 @@ func (c *TCPClient) sendHandler(ctx context.Context, conn net.Conn) {
 			_ = conn.Close()
 			return
 		default:
-			startTime := time.Now().UnixMilli()
-			sendMsg := benchtest.GenerateMessage(benchtest.GenerateRequestID())
-			logrus.Debugf("%s message: %s to %s", c.Protocol, sendMsg.GetRequestID(), conn.RemoteAddr())
-			err := benchtest.WriteTCP(sendMsg, conn)
+			timing, err := c.sendMessage(reader, conn)
 			if err != nil {
-				logrus.Warnf("failed to write: %v %s", err, conn.RemoteAddr())
+				c.addErrorCount()
 				return
 			}
-			c.setConnDeadline(conn)
-			receiveMsg, err := benchtest.ReadTCP(reader)
-			if err != nil {
-				logrus.Warnf("failed to read: %v %s", err, conn.RemoteAddr())
-				return
-			}
-			endTime := time.Now().UnixMilli()
-			logrus.Infof("%s message: %sfrom %s %dms", c.Protocol, receiveMsg.GetRequestID(), conn.RemoteAddr(), endTime-startTime)
+			c.addSuccessCount(*timing)
 		}
 		time.Sleep(c.Interval)
 	}

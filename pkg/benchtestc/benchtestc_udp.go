@@ -21,34 +21,44 @@ func NewUDPClient(client *Client) *UDPClient {
 	}
 }
 
+func (c *UDPClient) sendMessage() (*int64, error) {
+	startTime := time.Now().UnixMilli()
+	sendMsg := benchtest.GenerateMessage(benchtest.GenerateRequestID())
+	logrus.Debugf("%s message: %s to %s", c.Protocol, sendMsg.GetRequestID(), c.conn.RemoteAddr())
+	_, err := c.conn.Write(xutil.RemoveError(benchtest.Marshal(sendMsg)))
+	if err != nil {
+		logrus.Warnf("failed to write: %s %s", err, c.conn.RemoteAddr())
+		return nil, err
+	}
+	c.setConnDeadline(c.conn)
+	data := make([]byte, benchtest.ReadBufferSize)
+	n, err := c.conn.Read(data)
+	if err != nil {
+		logrus.Warnf("failed to read: %s %s", err, c.conn.RemoteAddr())
+		return nil, err
+	}
+	receiveMsg, err := benchtest.Unmarshal(data[:n])
+	if err != nil {
+		logrus.Warnf("failed to unmarshal: %s %s", err, c.conn.RemoteAddr())
+		return nil, err
+	}
+	timing := time.Now().UnixMilli() - startTime
+	logrus.Infof("%s message: %s from %s %dms", c.Protocol, receiveMsg.GetRequestID(), c.conn.RemoteAddr(), timing)
+	return &timing, err
+}
+
 func (c *UDPClient) sendHandler(ctx context.Context) {
 	for i := 0; i < c.MaxMessages || c.MaxMessages <= 0; i++ {
 		select {
 		case <-ctx.Done():
 			return
 		default:
-			startTime := time.Now().UnixMilli()
-			sendMsg := benchtest.GenerateMessage(benchtest.GenerateRequestID())
-			logrus.Debugf("%s message: %s to %s", c.Protocol, sendMsg.GetRequestID(), c.conn.RemoteAddr())
-			_, err := c.conn.Write(xutil.RemoveError(benchtest.Marshal(sendMsg)))
+			timing, err := c.sendMessage()
 			if err != nil {
-				logrus.Warnf("failed to write: %s %s", err, c.conn.RemoteAddr())
+				c.addErrorCount()
 				return
 			}
-			c.setConnDeadline(c.conn)
-			data := make([]byte, benchtest.ReadBufferSize)
-			n, err := c.conn.Read(data)
-			if err != nil {
-				logrus.Warnf("failed to read: %s %s", err, c.conn.RemoteAddr())
-				return
-			}
-			receiveMsg, err := benchtest.Unmarshal(data[:n])
-			if err != nil {
-				logrus.Warnf("failed to unmarshal: %s %s", err, c.conn.RemoteAddr())
-				return
-			}
-			endTime := time.Now().UnixMilli()
-			logrus.Infof("%s message: %s from %s %dms", c.Protocol, receiveMsg.GetRequestID(), c.conn.RemoteAddr(), endTime-startTime)
+			c.addSuccessCount(*timing)
 		}
 		time.Sleep(c.Interval)
 	}

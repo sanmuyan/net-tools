@@ -20,6 +20,30 @@ func NewWSClient(client *Client) *WSClient {
 		Client: client,
 	}
 }
+func (c *WSClient) sendMessage(conn *websocket.Conn) (*int64, error) {
+	startTime := time.Now().UnixMilli()
+	sendMsg := benchtest.GenerateMessage(benchtest.GenerateRequestID())
+	logrus.Debugf("%s message: %s to %s", c.Protocol, sendMsg.RequestID, conn.RemoteAddr())
+	err := conn.WriteMessage(websocket.TextMessage, xutil.RemoveError(benchtest.Marshal(sendMsg)))
+	if err != nil {
+		logrus.Warnf("failed to write:: %v", err)
+		return nil, err
+	}
+	_ = conn.SetReadDeadline(time.Now().Add(c.Timeout))
+	_, data, err := conn.ReadMessage()
+	if err != nil {
+		logrus.Warnf("failed to read: %v %s", err, conn.RemoteAddr())
+		return nil, err
+	}
+	receiveMsg, err := benchtest.Unmarshal(data)
+	if err != nil {
+		logrus.Warnf("failed to unmarshal: %s %s", err, conn.RemoteAddr())
+		return nil, err
+	}
+	timing := time.Now().UnixMilli() - startTime
+	logrus.Infof("%s message: %s from %s %dms", c.Protocol, receiveMsg.GetRequestID(), conn.RemoteAddr(), timing)
+	return &timing, err
+}
 
 func (c *WSClient) sendHandler(ctx context.Context, conn *websocket.Conn) {
 	for i := 0; i < c.MaxMessages || c.MaxMessages <= 0; i++ {
@@ -28,27 +52,12 @@ func (c *WSClient) sendHandler(ctx context.Context, conn *websocket.Conn) {
 			_ = conn.Close()
 			return
 		default:
-			startTime := time.Now().UnixMilli()
-			sendMsg := benchtest.GenerateMessage(benchtest.GenerateRequestID())
-			logrus.Debugf("%s message: %s to %s", c.Protocol, sendMsg.RequestID, conn.RemoteAddr())
-			err := conn.WriteMessage(websocket.TextMessage, xutil.RemoveError(benchtest.Marshal(sendMsg)))
+			timing, err := c.sendMessage(conn)
 			if err != nil {
-				logrus.Warnf("failed to write:: %v", err)
+				c.addErrorCount()
 				return
 			}
-			_ = conn.SetReadDeadline(time.Now().Add(c.Timeout))
-			_, data, err := conn.ReadMessage()
-			if err != nil {
-				logrus.Warnf("failed to read: %v %s", err, conn.RemoteAddr())
-				return
-			}
-			receiveMsg, err := benchtest.Unmarshal(data)
-			if err != nil {
-				logrus.Warnf("failed to unmarshal: %s %s", err, conn.RemoteAddr())
-				return
-			}
-			endTime := time.Now().UnixMilli()
-			logrus.Infof("%s message: %s from %s %dms", c.Protocol, receiveMsg.GetRequestID(), conn.RemoteAddr(), endTime-startTime)
+			c.addSuccessCount(*timing)
 		}
 		time.Sleep(c.Interval)
 	}

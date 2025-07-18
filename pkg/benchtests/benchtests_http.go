@@ -2,6 +2,7 @@ package benchtests
 
 import (
 	"context"
+	"errors"
 	"github.com/gorilla/websocket"
 	"github.com/sanmuyan/xpkg/xcrypto"
 	"github.com/sanmuyan/xpkg/xutil"
@@ -100,7 +101,7 @@ func (s *HTTPServer) run() {
 		} else {
 			err = srv.ListenAndServe()
 		}
-		if err != nil {
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			logrus.Fatalf("listen error: %v", err)
 		}
 	}()
