@@ -104,11 +104,11 @@ func init() {
 
 	benchTestsCmd.Flags().StringP("server-bind", "s", ":8080", "server bind addr")
 	benchTestsCmd.Flags().StringP("protocol", "P", "tcp", "test protocol (tcp|udp|http|https|ws)")
-	benchTestsCmd.Flags().IntP("timeout", "t", 1000, "client timeout (ms)")
+	benchTestsCmd.Flags().IntP("timeout", "t", 1000*60, "read message timeout (ms)")
 
 	benchTestcCmd.Flags().StringP("server-addr", "s", "localhost:8080", "server addr")
 	benchTestcCmd.Flags().StringP("protocol", "P", "tcp", "test protocol (tcp|udp|http|https|ws)")
-	benchTestcCmd.Flags().IntP("timeout", "t", 1000, "server timeout (ms)")
+	benchTestcCmd.Flags().IntP("timeout", "t", 1000, "read message timeout (ms)")
 	benchTestcCmd.Flags().IntP("interval", "i", 1000, "send message interval (ms)")
 	benchTestcCmd.Flags().IntP("max-thread", "T", 1, "test max thread")
 	benchTestcCmd.Flags().IntP("max-messages", "m", 0, "max send messages")

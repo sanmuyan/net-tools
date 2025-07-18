@@ -78,6 +78,8 @@ func RunClient(client *Client) {
 		clientConn = NewWSClient(client)
 	case "http", "https":
 		clientConn = NewHTTPClient(client)
+	case "quic":
+		clientConn = NewQUICClient(client)
 	default:
 		logrus.Fatalf("unknown protocol: %s", client.Protocol)
 		return
@@ -93,6 +95,9 @@ func RunClient(client *Client) {
 	var avg int64
 	if client.successCount > 0 {
 		avg = client.successTimeCount / client.successCount
+	}
+	if client.successCount == 0 {
+		return
 	}
 	loger.S.Infof("Success=%d, Error=%d, Timing=%ds Max=%s, Min=%s, Avg=%s",
 		client.successCount, client.errCount, timing, timeToStrUnit(client.successMaxTime), timeToStrUnit(client.successMinTime), timeToStrUnit(avg))

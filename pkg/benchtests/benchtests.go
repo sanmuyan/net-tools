@@ -41,6 +41,8 @@ func RunServer(server *Server) {
 		serverConn = NewUDPServer(server)
 	case "http", "ws", "https":
 		serverConn = NewHTTPServer(server)
+	case "quic":
+		serverConn = NewQUICServer(server)
 	default:
 		logrus.Fatalf("unknown protocol: %s", server.Protocol)
 		return

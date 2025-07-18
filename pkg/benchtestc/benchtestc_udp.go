@@ -69,7 +69,6 @@ func (c *UDPClient) run(wg *sync.WaitGroup) {
 	c.conn = c.createConn()
 	defer func() {
 		_ = c.conn.Close()
-		logrus.Debugf("%s test finished in %s", c.Protocol, c.conn.RemoteAddr())
 	}()
 	c.sendHandler(c.ctx)
 }
@@ -79,6 +78,5 @@ func (c *UDPClient) createConn() net.Conn {
 	if err != nil {
 		logrus.Fatalf("failed to dial server: %v", err)
 	}
-	c.setConnDeadline(conn)
 	return conn
 }

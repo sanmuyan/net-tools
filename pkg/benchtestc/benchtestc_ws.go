@@ -72,7 +72,6 @@ func (c *WSClient) run(wg *sync.WaitGroup) {
 	}
 	defer func() {
 		_ = conn.Close()
-		logrus.Debugf("%s test finished in %s", c.Protocol, conn.RemoteAddr())
 	}()
 	c.sendHandler(c.ctx, conn)
 }

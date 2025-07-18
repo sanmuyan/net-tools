@@ -2,9 +2,12 @@ package benchtest
 
 import (
 	"bufio"
+	"encoding/binary"
 	"github.com/google/uuid"
+	"github.com/quic-go/quic-go"
 	"github.com/sanmuyan/xpkg/xnet"
 	"google.golang.org/protobuf/proto"
+	"io"
 	"net"
 )
 
@@ -57,4 +60,28 @@ func ReadTCP(reader *bufio.Reader) (*BtMessage, error) {
 		return nil, err
 	}
 	return Unmarshal(be)
+}
+
+func ReadQUIC(stream *quic.Stream) (*BtMessage, error) {
+	var msgLen uint32
+	err := binary.Read(stream, binary.BigEndian, &msgLen)
+	if err != nil {
+		return nil, err
+	}
+	data := make([]byte, msgLen)
+	_, err = io.ReadFull(stream, data)
+	if err != nil {
+		return nil, err
+	}
+	return Unmarshal(data)
+}
+
+func WriteQUIC(msg *BtMessage, stream *quic.Stream) error {
+	bp, err := Marshal(msg)
+	if err != nil {
+		return err
+	}
+	_ = binary.Write(stream, binary.BigEndian, uint32(len(bp)))
+	_, err = stream.Write(bp)
+	return err
 }

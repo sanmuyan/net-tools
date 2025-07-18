@@ -25,7 +25,7 @@ func (s *HTTPServer) wsHandler(ctx context.Context, conn *websocket.Conn) {
 	for {
 		select {
 		default:
-			_ = conn.SetReadDeadline(time.Now().Add(s.Timeout))
+			s.setConnDeadline(conn)
 			messageType, data, err := conn.ReadMessage()
 			if err != nil {
 				logrus.Debugf("failed to read: %v %s", err, conn.RemoteAddr())
@@ -45,7 +45,6 @@ func (s *HTTPServer) wsHandler(ctx context.Context, conn *websocket.Conn) {
 				return
 			}
 		case <-ctx.Done():
-			logrus.Debugf("%s test finished in %s", s.Protocol, conn.RemoteAddr())
 			return
 		}
 	}
@@ -73,16 +72,7 @@ func (s *HTTPServer) httpHandler(w http.ResponseWriter, r *http.Request) {
 
 var upgrader = websocket.Upgrader{}
 
-func (s *HTTPServer) run() {
-	tlsConfig := xutil.RemoveError(xcrypto.CreateCertToTLS(nil))
-	r := http.NewServeMux()
-	srv := &http.Server{
-		Addr:        s.ServerBind,
-		Handler:     r,
-		ReadTimeout: s.Timeout,
-		TLSConfig:   tlsConfig,
-	}
-	r.HandleFunc("/ping", s.httpHandler)
+func (s *HTTPServer) ws(r *http.ServeMux) {
 	r.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
@@ -94,6 +84,27 @@ func (s *HTTPServer) run() {
 		}()
 		s.wsHandler(s.ctx, conn)
 	})
+}
+
+func (s *HTTPServer) http(r *http.ServeMux) {
+	r.HandleFunc("/ping", s.httpHandler)
+}
+
+func (s *HTTPServer) run() {
+	tlsConfig := xutil.RemoveError(xcrypto.CreateCertToTLS(nil))
+	r := http.NewServeMux()
+	srv := &http.Server{
+		Addr:        s.ServerBind,
+		Handler:     r,
+		ReadTimeout: s.Timeout,
+		TLSConfig:   tlsConfig,
+	}
+	switch s.Protocol {
+	case "ws":
+		s.ws(r)
+	case "http", "https":
+		s.http(r)
+	}
 	go func() {
 		var err error
 		if s.Protocol == "https" {
@@ -108,4 +119,8 @@ func (s *HTTPServer) run() {
 	logrus.Infof("%s server listening on %s", s.Protocol, s.ServerBind)
 	<-s.ctx.Done()
 	_ = srv.Shutdown(context.Background())
+}
+
+func (s *HTTPServer) setConnDeadline(conn *websocket.Conn) {
+	_ = conn.SetReadDeadline(time.Now().Add(s.Timeout))
 }

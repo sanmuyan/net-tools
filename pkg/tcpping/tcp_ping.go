@@ -178,6 +178,9 @@ func Run(ctx context.Context, args []string) {
 	if successTotal > 0 {
 		avg = totalTime / successTotal
 	}
+	if successTotal == 0 {
+		return
+	}
 	loger.S.Infof("Success=%d, Error=%d, Max=%s, Min=%s, Avg=%s",
 		successTotal, errorTotal, timeToStrUnit(maxTime), timeToStrUnit(minTime), timeToStrUnit(avg))
 }

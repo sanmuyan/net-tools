@@ -1,36 +1,36 @@
 package benchtestc
 
 import (
-	"bufio"
 	"context"
+	"crypto/tls"
+	"github.com/quic-go/quic-go"
 	"github.com/sirupsen/logrus"
-	"net"
 	"net-tools/pkg/benchtest"
 	"sync"
 	"time"
 )
 
-type TCPClient struct {
+type QUICClient struct {
 	*Client
 }
 
-func NewTCPClient(client *Client) *TCPClient {
-	return &TCPClient{
+func NewQUICClient(client *Client) *QUICClient {
+	return &QUICClient{
 		Client: client,
 	}
 }
 
-func (c *TCPClient) sendMessage(reader *bufio.Reader, conn net.Conn) (*int64, error) {
+func (c *QUICClient) sendMessage(conn *quic.Conn, stream *quic.Stream) (*int64, error) {
 	startTime := time.Now().UnixMilli()
 	sendMsg := benchtest.GenerateMessage(benchtest.GenerateRequestID())
 	logrus.Debugf("%s message: %s to %s", c.Protocol, sendMsg.GetRequestID(), conn.RemoteAddr())
-	err := benchtest.WriteTCP(sendMsg, conn)
+	err := benchtest.WriteQUIC(sendMsg, stream)
 	if err != nil {
 		logrus.Warnf("failed to write: %v %s", err, conn.RemoteAddr())
 		return nil, err
 	}
-	c.setConnDeadline(conn)
-	receiveMsg, err := benchtest.ReadTCP(reader)
+	c.setConnDeadline(stream)
+	receiveMsg, err := benchtest.ReadQUIC(stream)
 	if err != nil {
 		logrus.Warnf("failed to read: %v %s", err, conn.RemoteAddr())
 		return nil, err
@@ -40,14 +40,13 @@ func (c *TCPClient) sendMessage(reader *bufio.Reader, conn net.Conn) (*int64, er
 	return &timing, nil
 }
 
-func (c *TCPClient) sendHandler(ctx context.Context, conn net.Conn) {
-	reader := bufio.NewReaderSize(conn, benchtest.ReadBufferSize)
+func (c *QUICClient) sendHandler(ctx context.Context, conn *quic.Conn, stream *quic.Stream) {
 	for i := 0; i < c.MaxMessages || c.MaxMessages <= 0; i++ {
 		select {
 		case <-ctx.Done():
 			return
 		default:
-			timing, err := c.sendMessage(reader, conn)
+			timing, err := c.sendMessage(conn, stream)
 			if err != nil {
 				c.addErrorCount()
 				return
@@ -58,23 +57,34 @@ func (c *TCPClient) sendHandler(ctx context.Context, conn net.Conn) {
 	}
 }
 
-func (c *TCPClient) run(wg *sync.WaitGroup) {
+func (c *QUICClient) run(wg *sync.WaitGroup) {
 	defer wg.Done()
 	conn, err := c.createConn()
 	if err != nil {
 		logrus.Errorf("failed to dial server: %v", err)
 		return
 	}
+	stream, err := conn.OpenStreamSync(context.Background())
+	if err != nil {
+		logrus.Errorf("failed to open stream: %v", err)
+		return
+	}
 	defer func() {
-		_ = conn.Close()
+		_ = stream.Close()
 	}()
-	c.sendHandler(c.ctx, conn)
+	c.sendHandler(c.ctx, conn, stream)
 }
 
-func (c *TCPClient) createConn() (net.Conn, error) {
-	conn, err := net.DialTimeout("tcp", c.Server, c.Timeout)
+func (c *QUICClient) createConn() (*quic.Conn, error) {
+	tlsConfig := &tls.Config{InsecureSkipVerify: true}
+	quicConfig := &quic.Config{}
+	conn, err := quic.DialAddr(context.Background(), c.Server, tlsConfig, quicConfig)
 	if err != nil {
 		return nil, err
 	}
 	return conn, nil
+}
+
+func (c *QUICClient) setConnDeadline(stream *quic.Stream) {
+	_ = stream.SetReadDeadline(time.Now().Add(c.Timeout))
 }

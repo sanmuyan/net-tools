@@ -1,33 +1,36 @@
 package benchtests
 
 import (
-	"bufio"
 	"context"
+	"github.com/quic-go/quic-go"
+	"github.com/sanmuyan/xpkg/xcrypto"
+	"github.com/sanmuyan/xpkg/xutil"
 	"github.com/sirupsen/logrus"
-	"net"
 	"net-tools/pkg/benchtest"
+	"time"
 )
 
-type TCPServer struct {
+type QUICServer struct {
 	*Server
 }
 
-func NewTCPServer(server *Server) *TCPServer {
-	return &TCPServer{Server: server}
+func NewQUICServer(server *Server) *QUICServer {
+	return &QUICServer{Server: server}
 }
 
-func (s *TCPServer) replyHandler(ctx context.Context, conn net.Conn) {
-	defer func() {
-		_ = conn.Close()
-	}()
-	reader := bufio.NewReaderSize(conn, benchtest.ReadBufferSize)
+func (s *QUICServer) replyHandler(ctx context.Context, conn *quic.Conn) {
+	stream, err := conn.AcceptStream(context.Background())
+	if err != nil {
+		logrus.Debugf("failed to accept stream: %v", err)
+		return
+	}
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		default:
-			s.setConnDeadline(conn)
-			receiveMsg, err := benchtest.ReadTCP(reader)
+			s.setConnDeadline(stream)
+			receiveMsg, err := benchtest.ReadQUIC(stream)
 			if err != nil {
 				logrus.Debugf("failed to read: %v %s", err, conn.RemoteAddr())
 				return
@@ -35,7 +38,7 @@ func (s *TCPServer) replyHandler(ctx context.Context, conn net.Conn) {
 			logrus.Infof("%s message: %s from %s", s.Protocol, receiveMsg.GetRequestID(), conn.RemoteAddr())
 			sendMsg := benchtest.GenerateMessage(receiveMsg.GetRequestID())
 			logrus.Debugf("%s message: %s to %s", s.Protocol, sendMsg.GetRequestID(), conn.RemoteAddr())
-			err = benchtest.WriteTCP(sendMsg, conn)
+			err = benchtest.WriteQUIC(sendMsg, stream)
 			if err != nil {
 				logrus.Warnf("failed to write: %v %s", err, conn.RemoteAddr())
 				return
@@ -44,8 +47,10 @@ func (s *TCPServer) replyHandler(ctx context.Context, conn net.Conn) {
 	}
 }
 
-func (s *TCPServer) run() {
-	listener, err := net.Listen("tcp", s.ServerBind)
+func (s *QUICServer) run() {
+	tlsConfig := xutil.RemoveError(xcrypto.CreateCertToTLS(nil))
+	quicConfig := &quic.Config{}
+	listener, err := quic.ListenAddr(s.ServerBind, tlsConfig, quicConfig)
 	if err != nil {
 		logrus.Fatalf("listen error: %v", err)
 	}
@@ -55,7 +60,7 @@ func (s *TCPServer) run() {
 	logrus.Infof("%s server listening on %s", s.Protocol, s.ServerBind)
 	go func() {
 		for {
-			conn, err := listener.Accept()
+			conn, err := listener.Accept(s.ctx)
 			if err != nil {
 				continue
 			}
@@ -63,4 +68,8 @@ func (s *TCPServer) run() {
 		}
 	}()
 	<-s.ctx.Done()
+}
+
+func (s *QUICServer) setConnDeadline(stream *quic.Stream) {
+	_ = stream.SetReadDeadline(time.Now().Add(s.Timeout))
 }
