@@ -23,8 +23,8 @@ func NewPortScan(ports []int, ip string, maxThread int, timeout int) *PortScan {
 		maxThread = 1
 	}
 	// 最大并发不宜太多，过多并发很容易被防火墙拦截
-	if maxThread > 100 {
-		maxThread = 100
+	if maxThread > 1000 {
+		maxThread = 1000
 	}
 	if timeout < 10 {
 		timeout = 10
@@ -50,6 +50,7 @@ func (p *PortScan) Scan(done chan bool, openPorts chan int) {
 		wg.Add(1)
 		maxThread <- struct{}{}
 		go func(port int) {
+			loger.S.Debugf("Scanning: %s:%d", p.IP, port)
 			defer func() {
 				wg.Done()
 				<-maxThread

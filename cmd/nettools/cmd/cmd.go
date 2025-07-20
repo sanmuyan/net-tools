@@ -31,6 +31,7 @@ var portScanCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		portscan.Run(rootCtx, args)
 	},
+	Example: "192.168.1.1 1-65535",
 }
 
 var tcpPingCmd = &cobra.Command{
@@ -39,6 +40,7 @@ var tcpPingCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		tcpping.Run(rootCtx, args)
 	},
+	Example: "192.168.1.1 80",
 }
 
 var speedTestsCmd = &cobra.Command{
@@ -85,11 +87,11 @@ func init() {
 	rootCmd.PersistentFlags().IntP("log-level", "l", logLevel, "log level")
 	rootCmd.PersistentFlags().BoolP("pprof-server", "", false, "enable pprof server")
 
-	portScanCmd.Flags().IntP("max-thread", "t", 1, "max thread")
-	portScanCmd.Flags().IntP("timeout", "T", 200, "timeout (ms)")
+	portScanCmd.Flags().IntP("max-thread", "T", 1, "max thread")
+	portScanCmd.Flags().IntP("timeout", "t", 200, "timeout (ms)")
 
 	tcpPingCmd.Flags().StringP("protocol", "P", "tcp", "protocol (tcp|http)")
-	tcpPingCmd.Flags().IntP("timeout", "T", 1000, "timeout (ms)")
+	tcpPingCmd.Flags().IntP("timeout", "t", 1000, "timeout (ms)")
 	tcpPingCmd.Flags().IntP("count", "C", 4, "count")
 	tcpPingCmd.Flags().IntP("interval", "i", 1000, "interval (ms)")
 	tcpPingCmd.Flags().Bool("tls", false, "with tls")
