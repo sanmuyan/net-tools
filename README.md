@@ -42,19 +42,19 @@ Success=4, Error=0, Max=20ms, Min=9ms, Avg=13ms
 
 ```shell
 nts sts
-time="2025-03-06 22:11:11" level=info msg="tcp server listening on 0.0.0.0:8080"
-time="2025-03-06 22:11:11" level=info msg="quic server listening on 0.0.0.0:8080"
-time="2025-03-06 22:11:46" level=info msg="tcp download from 127.0.0.1:59367"
-time="2025-03-06 22:11:56" level=info msg="download finished in 127.0.0.1:59367"
+time="2025-03-06 22:11:11" level=info msg="tcp server listening on :8080"
+time="2025-03-06 22:11:11" level=info msg="quic server listening on :8080"
+time="2025-03-06 22:11:46" level=info msg="tcp download from 192.168.1.2:59367"
+time="2025-03-06 22:11:56" level=info msg="download finished in 192.168.1.2:59367"
 ```
 
-- `-s` 服务器监控地址，默认值`0.0.0.0:8080`
+- `-s` 服务器监控地址，默认值`:8080`
 
 ### 客户端
 
 ```shell
 nts stc -s 192.168.1.1:8080
-time="2025-03-06 22:11:46" level=info msg="tcp download testing to localhost:8080"
+time="2025-03-06 22:11:46" level=info msg="tcp download testing to 192.168.1.1:8080"
 time="2025-03-06 22:11:47" level=info msg="real-time speed: 339.38Mbps/s"
 time="2025-03-06 22:11:48" level=info msg="real-time speed: 349.91Mbps/s"
 time="2025-03-06 22:11:49" level=info msg="real-time speed: 344.06Mbps/s"
@@ -90,7 +90,7 @@ time="2025-07-17 23:44:48" level=info msg="tcp message: 0333e336-f006-4543-b41c-
 time="2025-07-17 23:44:49" level=info msg="tcp message: 9e514627-a746-493f-b4b5-d70364730475 from 192.168.1.2:59735"
 ```
 
-- `-s` 服务器监控地址，默认值`0.0.0.0:8080`
+- `-s` 服务器监控地址，默认值`:8080`
 - `-P` 测试协议，默认值`tcp`，可选值`tcp|udp|http|https|ws|quic`
 - `-t` 读取消息超时，默认值`60s`
 
